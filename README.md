@@ -20,10 +20,8 @@ Este proyecto implementa un sistema que:
 ```
 ├── main.py                        # Programa principal (interfaz de usuario)
 ├── src/
-│   ├── __init__.py
 │   ├── rut_validator.py          # Módulo de validación de RUTs
 │   └── coefficient_engine.py     # Motor de cálculo de coeficientes
-
 
 ## Uso
 
