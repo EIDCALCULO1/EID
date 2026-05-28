@@ -3,6 +3,12 @@ Módulo 2: Motor de Coeficientes Base
 Calcula los coeficientes iniciales A, B, C, D, E a partir del RUT.
 """
 
+from src.conic_rules_adjuster import apply_conic_rules
+from src.conic_classifier import classify_conic
+from src.text_generator import generate_equation_construction_explanation, generate_adjusted_equation_comparison
+from src.canonical_transformer import transform_conic_general_to_canonical, inverse_transformation_summary
+
+
 def gcd(a, b):
     """Calcula máximo común divisor usando Euclides."""
     while b:
@@ -206,39 +212,56 @@ def calculate_coefficients(digits, dv):
     # Calcular E = d_1 + d_3 + d_5 + d_7
     E = d1 + d3 + d5 + d7
     
-    # Lista para registrar ajustes aplicados
-    adjustments = []
+    # Calcular valores iniciales ANTES de ajustes (para comparación del Módulo 5)
+    A_before_adjustments = sum_d1_d2 / v
+    B_before_adjustments = sum_d3_d4 / v
+    B_num_before = B_num
+    B_den_before = B_den
+    if d8 % 2 == 1:  # Simulación del primer ajuste
+        B_num_before = -B_num_before
     
-    # AJUSTES PARA OBTENER DISTINTAS CÓNICAS
+    # ================================================================
+    # APLICAR AJUSTES DE CÓNICAS (Módulo 3)
+    # ================================================================
+    A, B, (A_num, A_den), (B_num, B_den), adjustments = apply_conic_rules(
+        A, B, (A_num, A_den), (B_num, B_den), digits
+    )
     
-    # Ajuste 1: Si d8 es impar, reemplazar B por -B (hipérbolas)
-    if d8 % 2 == 1:
-        B = -B
-        B_num = -B_num
-        adjustments.append(f"Ajuste 1: d8 = {d8} es impar -> Se reemplaza B por -B (hiperbola)")
+    # ================================================================
+    # CLASIFICAR CÓNICA (Módulo 4)
+    # ================================================================
+    conic_classification = classify_conic(A, B, C, D, E)
     
-    # Ajuste 2: Si d1 = d2, imponer B = A (circunferencias)
-    if d1 == d2:
-        B = A
-        B_num = A_num
-        B_den = A_den
-        adjustments.append(f"Ajuste 2: d1 = d2 = {d1} -> Se impone B = A (circunferencia)")
+    # ================================================================
+    # GENERAR EXPLICACIONES TEXTUALES (Módulo 5)
+    # ================================================================
+    explanation_fraction = generate_equation_construction_explanation(
+        digits, dv, A, B, C, D, E, 
+        (A_num, A_den), (B_num, B_den), v, adjustments,
+        conic_classification['type'], use_fractions=True
+    )
     
-    # Ajuste 3: Si d5 + d6 es múltiplo de 3, generar parábola
-    sum_d5_d6 = d5 + d6
-    if sum_d5_d6 % 3 == 0:
-        if d7 % 2 == 0:
-            # d7 es par -> B = 0 (parábola de eje vertical)
-            B = 0
-            B_num = 0
-            B_den = 1
-            adjustments.append(f"Ajuste 3a: (d5 + d6) = {sum_d5_d6} es multiplo de 3 y d7 = {d7} es par -> B = 0 (parabola eje vertical)")
-        else:
-            # d7 es impar -> A = 0 (parábola de eje horizontal)
-            A = 0
-            A_num = 0
-            A_den = 1
-            adjustments.append(f"Ajuste 3b: (d5 + d6) = {sum_d5_d6} es multiplo de 3 y d7 = {d7} es impar -> A = 0 (parabola eje horizontal)")
+    explanation_decimal = generate_equation_construction_explanation(
+        digits, dv, A, B, C, D, E, 
+        (A_num, A_den), (B_num, B_den), v, adjustments,
+        conic_classification['type'], use_fractions=False
+    )
+    
+    adjusted_comparison = generate_adjusted_equation_comparison(
+        A_before_adjustments, B_before_adjustments, A, B, adjustments
+    )
+    
+    # ================================================================
+    # TRANSFORMACIÓN A FORMA CANÓNICA (Módulo 6)
+    # ================================================================
+    canonical_result = transform_conic_general_to_canonical(
+        A, B, C, D, E, conic_classification['type']
+    )
+    
+    # Generar procedimiento inverso
+    inverse_proc = inverse_transformation_summary(
+        A, B, C, D, E, conic_classification['type']
+    )
     
     return {
         'A': A,
@@ -250,6 +273,13 @@ def calculate_coefficients(digits, dv):
         'B_frac': (B_num, B_den),
         'v': v,
         'adjustments': adjustments,
+        'conic_type': conic_classification['type'],
+        'conic_classification': conic_classification,
         'equation_fraction': build_general_equation(A, B, C, D, E, A_frac=(A_num, A_den), B_frac=(B_num, B_den), use_fractions=True),
-        'equation_decimal': build_general_equation(A, B, C, D, E, A_frac=(A_num, A_den), B_frac=(B_num, B_den), use_fractions=False)
+        'equation_decimal': build_general_equation(A, B, C, D, E, A_frac=(A_num, A_den), B_frac=(B_num, B_den), use_fractions=False),
+        'explanation_fraction': explanation_fraction,
+        'explanation_decimal': explanation_decimal,
+        'adjusted_comparison': adjusted_comparison,
+        'canonical_transformation': canonical_result,
+        'inverse_transformation': inverse_proc
     }

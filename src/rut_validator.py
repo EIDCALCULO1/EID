@@ -144,3 +144,91 @@ def validate_rut(rut_input):
         'digits': digits,
         'dv': expected_dv
     }
+
+
+def show_validation_procedure(rut_input):
+    """
+    Genera el procedimiento paso a paso del algoritmo Módulo 11 para validar un RUT.
+    
+    Parámetros:
+    - rut_input: RUT ingresado por el usuario (con formato XX.XXX.XXX-X)
+    
+    Retorna: string con el procedimiento detallado o None si hay error de formato
+    """
+    # Validar formato primero
+    format_valid, format_error = validate_format(rut_input)
+    if not format_valid:
+        return None
+    
+    rut_clean = clean_rut(rut_input)
+    
+    # Extraer dígitos y DV
+    digits = tuple(int(d) for d in rut_clean[:8])
+    provided_dv = rut_clean[8]
+    
+    # Multiplicadores del algoritmo Módulo 11 (de derecha a izquierda)
+    multiplicadores = [2, 3, 4, 5, 6, 7, 2, 3]
+    
+    # Construir el procedimiento
+    procedure = "\n"
+    procedure += f"RUT ingresado: {rut_input}\n"
+    procedure += f"RUT limpio: {rut_clean}\n\n"
+    
+    # Paso 1: Mostrar dígitos
+    procedure += f"Paso 1: Extraer dígitos\n"
+    procedure += f"  Dígitos del RUT: {' '.join(map(str, digits))}\n"
+    procedure += f"  Dígito verificador proporcionado: {provided_dv}\n\n"
+    
+    # Paso 2: Mostrar multiplicadores
+    procedure += f"Paso 2: Aplicar multiplicadores (de DERECHA a IZQUIERDA)\n"
+    procedure += f"  Posición:      d₁ d₂ d₃ d₄ d₅ d₆ d₇ d₈\n"
+    procedure += f"  Dígitos:       {' '.join(map(str, digits))}\n"
+    procedure += f"  Multiplicador: {' '.join(map(str, multiplicadores[::-1]))}\n\n"
+    
+    # Paso 3: Calcular productos
+    procedure += f"Paso 3: Calcular productos (dígito × multiplicador)\n"
+    suma = 0
+    for i, digit in enumerate(digits):
+        mult = multiplicadores[7 - i]
+        producto = digit * mult
+        suma += producto
+        procedure += f"  d{i+1} × mult: {digit} × {mult} = {producto}\n"
+    
+    procedure += f"\n"
+    
+    # Paso 4: Suma total
+    procedure += f"Paso 4: Suma total de productos\n"
+    procedure += f"  Suma: {suma}\n\n"
+    
+    # Paso 5: Aplicar módulo 11
+    remainder = suma % 11
+    procedure += f"Paso 5: Calcular resto al dividir por 11\n"
+    procedure += f"  {suma} mod 11 = {remainder}\n\n"
+    
+    # Paso 6: Calcular DV esperado
+    expected_dv_value = 11 - remainder
+    procedure += f"Paso 6: Calcular dígito verificador esperado\n"
+    procedure += f"  DV_esperado = 11 - {remainder} = {expected_dv_value}\n"
+    
+    if expected_dv_value == 11:
+        expected_dv = '0'
+        procedure += f"  Como el resultado es 11, se reemplaza por 0\n"
+    elif expected_dv_value == 10:
+        expected_dv = 'K'
+        procedure += f"  Como el resultado es 10, se reemplaza por K\n"
+    else:
+        expected_dv = str(expected_dv_value)
+    
+    procedure += f"  DV esperado: {expected_dv}\n\n"
+    
+    # Paso 7: Validación final
+    procedure += f"Paso 7: Comparación y validación\n"
+    procedure += f"  DV esperado: {expected_dv}\n"
+    procedure += f"  DV proporcionado: {provided_dv}\n"
+    
+    if provided_dv == expected_dv:
+        procedure += f"  ✓ COINCIDEN - RUT VÁLIDO\n"
+    else:
+        procedure += f"  ✗ NO COINCIDEN - RUT INVÁLIDO\n"
+    
+    return procedure

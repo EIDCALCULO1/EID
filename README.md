@@ -4,24 +4,28 @@ Aplicación Python para validar RUTs chilenos y generar ecuaciones de cónicas a
 
 ## Descripción
 
-Este proyecto implementa un sistema que:
+Este proyecto implementa un sistema completo de 6 módulos que:
 
-1. **Valida RUTs chilenos** usando el algoritmo Módulo 11
-2. **Calcula coeficientes** (A, B, C, D, E) para una ecuación general de cónicas a partir de los 8 dígitos del RUT
-3. **Aplica ajustes específicos** para generar distintos tipos de cónicas:
-   - Hipérbolas (si d₈ es impar)
-   - Circunferencias (si d₁ = d₂)
-   - Parábolas (si (d₅ + d₆) es múltiplo de 3)
-4. **Muestra el procedimiento paso a paso** para cada coeficiente
-5. **Presenta la ecuación resultante** en formato de fracciones o decimales
+1. **Módulo 1 - Validación:** Valida RUTs chilenos usando el algoritmo Módulo 11 con procedimiento paso a paso
+2. **Módulo 2 - Coeficientes:** Calcula (A, B, C, D, E) para la ecuación general de cónicas a partir de los dígitos del RUT
+3. **Módulo 3 - Ajustes:** Aplica 3 ajustes específicos para generar distintos tipos de cónicas
+4. **Módulo 4 - Clasificación:** Clasifica automáticamente el tipo de cónica (circunferencia, elipse, hipérbola, parábola)
+5. **Módulo 5 - Explicaciones:** Genera explicaciones detalladas con 5 pasos de la construcción de la ecuación
+6. **Módulo 6 - Forma Canónica:** Transforma la ecuación general a canónica mostrando el completamiento de cuadrados paso a paso
 
 ## Estructura del Proyecto
 
 ```
-├── main.py                        # Programa principal (interfaz de usuario)
+├── main.py                              # Programa principal (interfaz de usuario)
 ├── src/
-│   ├── rut_validator.py          # Módulo de validación de RUTs
-│   └── coefficient_engine.py     # Motor de cálculo de coeficientes
+│   ├── rut_validator.py                # Módulo 1: Validación de RUTs
+│   ├── coefficient_engine.py           # Módulo 2: Motor de cálculo de coeficientes
+│   ├── conic_rules_adjuster.py         # Módulo 3: Ajustes de cónicas
+│   ├── conic_classifier.py             # Módulo 4: Clasificador de cónicas
+│   ├── text_generator.py               # Módulo 5: Generador de explicaciones
+│   └── canonical_transformer.py        # Módulo 6: Transformación a forma canónica
+├── README.md                            # Este archivo
+```
 
 ## Uso
 
@@ -100,6 +104,21 @@ RESUMEN DE COEFICIENTES:
 
 Ecuación General: 3/5x² + 7/5y² - 11x - 15y + 16 = 0
 ```
+
+## Módulo 6: Transformación a Forma Canónica
+
+El Módulo 6 transforma automáticamente la ecuación general a su forma canónica, justificando cada paso algebraico:
+
+- **Circunferencia:** $(x - h)^2 + (y - k)^2 = r^2$
+- **Elipse:** $\frac{(x-h)^2}{a^2} + \frac{(y-k)^2}{b^2} = 1$
+- **Hipérbola:** $\frac{(x-h)^2}{a^2} - \frac{(y-k)^2}{b^2} = 1$
+- **Parábola:** $(x-h)^2 = 4p(y-k)$ o $(y-k)^2 = 4p(x-h)$
+
+El procedimiento incluye:
+- Completamiento de cuadrados paso a paso
+- Justificación de cada operación algebraica
+- Extracción de parámetros canónicos (centro, radio, semiejes, etc.)
+- Procedimiento inverso (canónica → general)
 
 ## Requisitos
 
