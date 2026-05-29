@@ -6,12 +6,12 @@ Implementa el algoritmo Módulo 11 para validar RUTs chilenos.
 import re
 
 
-def clean_rut(rut_input):
+def limpiar_rut(rut_input):
     """Limpia el RUT removiendo puntos, guiones y espacios."""
     return rut_input.replace(".", "").replace("-", "").replace(" ", "").upper()
 
 
-def validate_format(rut_input):
+def validar_formato(rut_input):
     """
     Valida el formato del RUT.
     El formato correcto es: XX.XXX.XXX-X donde X son dígitos y el último puede ser K (mayúscula o minúscula).
@@ -65,7 +65,7 @@ def validate_format(rut_input):
     return True, None
 
 
-def validate_rut(rut_input):
+def validar_rut(rut_input):
     """
     Valida un RUT chileno usando algoritmo Módulo 11.
     
@@ -77,14 +77,14 @@ def validate_rut(rut_input):
     - error: mensaje de error si aplica
     """
     # Primero validar el formato
-    format_valid, format_error = validate_format(rut_input)
+    format_valid, format_error = validar_formato(rut_input)
     if not format_valid:
         return {
             'is_valid': False,
             'error': format_error
         }
     
-    rut_clean = clean_rut(rut_input)
+    rut_clean = limpiar_rut(rut_input)
     
     # Validar que tenga exactamente 9 caracteres después de limpiar
     if len(rut_clean) != 9:
@@ -146,7 +146,7 @@ def validate_rut(rut_input):
     }
 
 
-def show_validation_procedure(rut_input):
+def mostrar_procedimiento_validacion(rut_input):
     """
     Genera el procedimiento paso a paso del algoritmo Módulo 11 para validar un RUT.
     
@@ -156,11 +156,11 @@ def show_validation_procedure(rut_input):
     Retorna: string con el procedimiento detallado o None si hay error de formato
     """
     # Validar formato primero
-    format_valid, format_error = validate_format(rut_input)
+    format_valid, format_error = validar_formato(rut_input)
     if not format_valid:
         return None
     
-    rut_clean = clean_rut(rut_input)
+    rut_clean = limpiar_rut(rut_input)
     
     # Extraer dígitos y DV
     digits = tuple(int(d) for d in rut_clean[:8])

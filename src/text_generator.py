@@ -12,7 +12,7 @@ general."
 """
 
 
-def generate_equation_construction_explanation(digits, dv, A, B, C, D, E, 
+def generar_explicacion_construccion_ecuacion(digits, dv, A, B, C, D, E, 
                                                A_frac, B_frac, v, adjustments,
                                                conic_type, use_fractions=True):
     """
@@ -196,7 +196,7 @@ def generate_equation_construction_explanation(digits, dv, A, B, C, D, E,
     return explanation
 
 
-def generate_adjusted_equation_comparison(A_before, B_before, A_after, B_after, 
+def generar_comparacion_ecuacion_ajustada(A_before, B_before, A_after, B_after, 
                                           adjustments):
     """
     Genera una comparación visual de los coeficientes antes y después de ajustes.

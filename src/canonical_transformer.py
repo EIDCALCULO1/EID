@@ -14,7 +14,7 @@ justificando cada operación. Debe incluir el procedimiento inverso."
 """
 
 
-def complete_square_univariate(coeff_x2, coeff_x, constant):
+def completar_cuadrado_univar(coeff_x2, coeff_x, constant):
     """
     Completa el cuadrado para términos de una variable: Ax² + Bx + C
     
@@ -77,7 +77,7 @@ def complete_square_univariate(coeff_x2, coeff_x, constant):
     return h, k, proc
 
 
-def transform_circle_to_canonical(A, C, D, E):
+def transformar_circunferencia_a_canonica(A, C, D, E):
     """
     Transforma ecuación de circunferencia de forma general a canónica.
     
@@ -104,10 +104,10 @@ def transform_circle_to_canonical(A, C, D, E):
     proc += f"  (x² + {C/A}x) + (y² + {D/A}y) + {E/A} = 0\n\n"
     
     # Completar cuadrados
-    h, k_x, proc_x = complete_square_univariate(1, C/A, 0)
+    h, k_x, proc_x = completar_cuadrado_univar(1, C/A, 0)
     proc += f"Para x:\n{proc_x}\n"
     
-    h_y, k_y, proc_y = complete_square_univariate(1, D/A, 0)
+    h_y, k_y, proc_y = completar_cuadrado_univar(1, D/A, 0)
     proc += f"\nPara y:\n{proc_y}\n"
     
     # Calcular r²
@@ -132,7 +132,7 @@ def transform_circle_to_canonical(A, C, D, E):
     }
 
 
-def transform_conic_general_to_canonical(A, B, C, D, E, conic_type):
+def transformar_conica_general_a_canonica(A, B, C, D, E, conic_type):
     """
     Transforma ecuación general a canónica según el tipo de cónica.
     
@@ -144,22 +144,22 @@ def transform_conic_general_to_canonical(A, B, C, D, E, conic_type):
     """
     
     if conic_type == 'circunferencia':
-        return transform_circle_to_canonical(A, C, D, E)
+        return transformar_circunferencia_a_canonica(A, C, D, E)
     
     elif conic_type == 'elipse':
-        return transform_elipse_to_canonical(A, B, C, D, E)
+        return transformar_elipse_a_canonica(A, B, C, D, E)
     
     elif conic_type == 'hipérbola':
-        return transform_hyperbola_to_canonical(A, B, C, D, E)
+        return transformar_hiperbola_a_canonica(A, B, C, D, E)
     
     elif conic_type == 'parábola':
-        return transform_parabola_to_canonical(A, B, C, D, E)
+        return transformar_parabola_a_canonica(A, B, C, D, E)
     
     else:
         return None, f"Tipo de cónica no reconocido: {conic_type}"
 
 
-def transform_elipse_to_canonical(A, B, C, D, E):
+def transformar_elipse_a_canonica(A, B, C, D, E):
     """
     Transforma ecuación de elipse de forma general a canónica.
     
@@ -180,11 +180,11 @@ def transform_elipse_to_canonical(A, B, C, D, E):
     proc += f"  ({A}x² + {C}x) + ({B}y² + {D}y) + {E} = 0\n\n"
     
     # Completar cuadrado para x
-    h_x, k_x, proc_x = complete_square_univariate(A, C, 0)
+    h_x, k_x, proc_x = completar_cuadrado_univar(A, C, 0)
     proc += f"Completar cuadrado para x:\n{proc_x}\n"
     
     # Completar cuadrado para y
-    h_y, k_y, proc_y = complete_square_univariate(B, D, 0)
+    h_y, k_y, proc_y = completar_cuadrado_univar(B, D, 0)
     proc += f"Completar cuadrado para y:\n{proc_y}\n"
     
     # Construir la ecuación completada
@@ -239,7 +239,7 @@ def transform_elipse_to_canonical(A, B, C, D, E):
     }
 
 
-def transform_hyperbola_to_canonical(A, B, C, D, E):
+def transformar_hiperbola_a_canonica(A, B, C, D, E):
     """
     Transforma ecuación de hipérbola de forma general a canónica.
     
@@ -261,11 +261,11 @@ def transform_hyperbola_to_canonical(A, B, C, D, E):
     proc += f"  ({A}x² + {C}x) + ({B}y² + {D}y) + {E} = 0\n\n"
     
     # Completar cuadrado para x
-    h_x, k_x, proc_x = complete_square_univariate(A, C, 0)
+    h_x, k_x, proc_x = completar_cuadrado_univar(A, C, 0)
     proc += f"Completar cuadrado para x:\n{proc_x}\n"
     
     # Completar cuadrado para y (considerando que B es negativo)
-    h_y, k_y, proc_y = complete_square_univariate(B, D, 0)
+    h_y, k_y, proc_y = completar_cuadrado_univar(B, D, 0)
     proc += f"Completar cuadrado para y:\n{proc_y}\n"
     
     # Construir la ecuación completada
@@ -320,7 +320,7 @@ def transform_hyperbola_to_canonical(A, B, C, D, E):
     }
 
 
-def transform_parabola_to_canonical(A, B, C, D, E):
+def transformar_parabola_a_canonica(A, B, C, D, E):
     """
     Transforma ecuación de parábola de forma general a canónica.
     
@@ -344,7 +344,7 @@ def transform_parabola_to_canonical(A, B, C, D, E):
         proc += f"  {D}y = -{A}x² - {C}x - {E}\n\n"
         
         proc += f"Paso 2: Completar cuadrado para x\n"
-        h_x, k_x, proc_x = complete_square_univariate(A, C, 0)
+        h_x, k_x, proc_x = completar_cuadrado_univar(A, C, 0)
         proc += proc_x
         
         proc += f"\nPaso 3: Sustituir en ecuación\n"
@@ -389,7 +389,7 @@ def transform_parabola_to_canonical(A, B, C, D, E):
         proc += f"  {C}x = -{B}y² - {D}y - {E}\n\n"
         
         proc += f"Paso 2: Completar cuadrado para y\n"
-        h_y, k_y, proc_y = complete_square_univariate(B, D, 0)
+        h_y, k_y, proc_y = completar_cuadrado_univar(B, D, 0)
         proc += proc_y
         
         proc += f"\nPaso 3: Sustituir en ecuación\n"
@@ -426,7 +426,7 @@ def transform_parabola_to_canonical(A, B, C, D, E):
         }
 
 
-def inverse_transformation_summary(A, B, C, D, E, conic_type):
+def resumen_transformacion_inversa(A, B, C, D, E, conic_type):
     """
     Genera resumen del procedimiento inverso: Canónica → General
     

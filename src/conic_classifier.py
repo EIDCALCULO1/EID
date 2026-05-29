@@ -12,7 +12,7 @@ Criterios de clasificación (según pauta):
 """
 
 
-def have_same_sign(a, b):
+def tienen_mismo_signo(a, b):
     """
     Verifica si dos números tienen el mismo signo.
     
@@ -21,7 +21,7 @@ def have_same_sign(a, b):
     return (a > 0 and b > 0) or (a < 0 and b < 0)
 
 
-def have_opposite_signs(a, b):
+def tienen_signos_opuestos(a, b):
     """
     Verifica si dos números tienen signos opuestos.
     
@@ -30,7 +30,7 @@ def have_opposite_signs(a, b):
     return (a > 0 and b < 0) or (a < 0 and b > 0)
 
 
-def classify_conic(A, B, C, D, E):
+def clasificar_conica(A, B, C, D, E):
     """
     Clasifica automáticamente el tipo de cónica según los criterios de la pauta.
     
@@ -91,7 +91,7 @@ def classify_conic(A, B, C, D, E):
     # CRITERIO 3: HIPÉRBOLA
     # Si A y B tienen signos opuestos
     # ================================================================
-    if have_opposite_signs(A, B):
+    if tienen_signos_opuestos(A, B):
         return {
             'type': 'hipérbola',
             'justification': (
@@ -108,7 +108,7 @@ def classify_conic(A, B, C, D, E):
     # CRITERIO 4: ELIPSE
     # Si A y B tienen el MISMO signo y A ≠ B
     # ================================================================
-    if have_same_sign(A, B) and A != B:
+    if tienen_mismo_signo(A, B) and A != B:
         return {
             'type': 'elipse',
             'justification': (
@@ -151,7 +151,7 @@ def classify_conic(A, B, C, D, E):
     }
 
 
-def get_conic_classification_rules():
+def obtener_reglas_clasificacion_conicas():
     """
     Retorna una descripción clara de las reglas de clasificación de cónicas.
     

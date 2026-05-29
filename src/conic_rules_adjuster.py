@@ -15,7 +15,7 @@ Estas reglas se aplican SECUENCIALMENTE, por lo que el orden es importante.
 """
 
 
-def apply_conic_rules(A, B, A_frac, B_frac, digits):
+def aplicar_reglas_conicas(A, B, A_frac, B_frac, digits):
     """
     Aplica las reglas de ajuste de cónicas según la pauta oficial.
     
@@ -92,7 +92,7 @@ def apply_conic_rules(A, B, A_frac, B_frac, digits):
     return A_adjusted, B_adjusted, A_frac_adjusted, B_frac_adjusted, adjustments
 
 
-def get_adjustment_rules():
+def obtener_reglas_ajuste_conicas():
     """
     Retorna una descripción legible de las reglas de ajuste de cónicas.
     

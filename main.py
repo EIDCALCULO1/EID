@@ -1,14 +1,21 @@
 """
-Script de testing para Módulos 1, 2, 3, 4 y 5
+Script de testing para Módulos 1, 2, 3, 4 y 5.
+
+Al ejecutar este archivo directamente, se abre la interfaz gráfica
+(Módulo 7). El CLI clásico permanece disponible con la opción
+"--cli" o "cli".
 """
 
-from src.rut_validator import validate_rut, show_validation_procedure
-from src.coefficient_engine import calculate_coefficients, show_coefficient_procedure
-from src.conic_rules_adjuster import get_adjustment_rules
-from src.conic_classifier import get_conic_classification_rules
+import sys
+import tkinter as tk
+from src.rut_validator import validar_rut, mostrar_procedimiento_validacion
+from src.coefficient_engine import calcular_coeficientes, mostrar_procedimiento_coeficientes
+from src.conic_rules_adjuster import obtener_reglas_ajuste_conicas
+from src.conic_classifier import obtener_reglas_clasificacion_conicas
+from src.gui_interface import InterfazAnalisisConicas
 
 
-def main():
+def run_cli() -> None:
     print("\n" + "="*70)
     print("TESTING MÓDULO 1: VALIDADOR RUT")
     print("="*70)
@@ -19,7 +26,7 @@ def main():
         rut = input("\nIngrese el RUT a validar (formato: XX.XXX.XXX-X): ")
         print(f"\nRUT a validar: {rut}")
         
-        result = validate_rut(rut)
+        result = validar_rut(rut)
         
         if result['is_valid']:
             print("[OK] RUT valido")
@@ -31,7 +38,7 @@ def main():
             print(f"\n{'='*70}")
             print("PROCEDIMIENTO PASO A PASO - ALGORITMO MÓDULO 11")
             print(f"{'='*70}")
-            procedure = show_validation_procedure(rut)
+            procedure = mostrar_procedimiento_validacion(rut)
             if procedure:
                 print(procedure)
         else:
@@ -55,7 +62,7 @@ def main():
     digits = result['digits']
     dv = result['dv']
     
-    coeff = calculate_coefficients(digits, dv)
+    coeff = calcular_coeficientes(digits, dv)
     
     print(f"\nVariable v: {coeff['v']}")
     
@@ -63,7 +70,7 @@ def main():
     print(f"\n{'='*70}")
     print("MÓDULO 3: REGLAS DE AJUSTE DE CÓNICAS")
     print(f"{'='*70}")
-    print(get_adjustment_rules())
+    print(obtener_reglas_ajuste_conicas())
     
     # Mostrar ajustes aplicados si hay
     if coeff['adjustments']:
@@ -77,7 +84,7 @@ def main():
     print(f"\n{'='*70}")
     print("PROCEDIMIENTO PASO A PASO")
     print(f"{'='*70}")
-    procedure = show_coefficient_procedure(digits, dv, use_fractions=use_fractions)
+    procedure = mostrar_procedimiento_coeficientes(digits, dv, use_fractions=use_fractions)
     print(procedure)
     
     # Mostrar resumen de coeficientes
@@ -90,9 +97,9 @@ def main():
         print(f"  A = {coeff['A_frac'][0]}/{coeff['A_frac'][1]}")
         print(f"  B = {coeff['B_frac'][0]}/{coeff['B_frac'][1]}")
     else:
-        from src.coefficient_engine import round_to_2_decimals
-        print(f"  A = {round_to_2_decimals(coeff['A'])}")
-        print(f"  B = {round_to_2_decimals(coeff['B'])}")
+        from src.coefficient_engine import redondear_a_2_decimales
+        print(f"  A = {redondear_a_2_decimales(coeff['A'])}")
+        print(f"  B = {redondear_a_2_decimales(coeff['B'])}")
     
     print(f"  C = {coeff['C']}")
     print(f"  D = {coeff['D']}")
@@ -122,7 +129,7 @@ def main():
     print(f"\n{'='*70}")
     print("MÓDULO 4: CLASIFICADOR GEOMÉTRICO")
     print(f"{'='*70}")
-    print(get_conic_classification_rules())
+    print(obtener_reglas_clasificacion_conicas())
     
     # Mostrar clasificación de la cónica
     print(f"{'='*70}")
@@ -180,6 +187,19 @@ def main():
         print(inverse)
     
     print("\n" + "="*70 + "\n")
+
+
+def run_gui() -> None:
+    root = tk.Tk()
+    app = InterfazAnalisisConicas(root)
+    root.mainloop()
+
+
+def main() -> None:
+    if len(sys.argv) > 1 and sys.argv[1].lower() in ['--cli', 'cli']:
+        run_cli()
+    else:
+        run_gui()
 
 
 if __name__ == "__main__":

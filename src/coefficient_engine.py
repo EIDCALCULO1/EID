@@ -3,29 +3,29 @@ Módulo 2: Motor de Coeficientes Base
 Calcula los coeficientes iniciales A, B, C, D, E a partir del RUT.
 """
 
-from src.conic_rules_adjuster import apply_conic_rules
-from src.conic_classifier import classify_conic
-from src.text_generator import generate_equation_construction_explanation, generate_adjusted_equation_comparison
-from src.canonical_transformer import transform_conic_general_to_canonical, inverse_transformation_summary
+from src.conic_rules_adjuster import aplicar_reglas_conicas
+from src.conic_classifier import clasificar_conica
+from src.text_generator import generar_explicacion_construccion_ecuacion, generar_comparacion_ecuacion_ajustada
+from src.canonical_transformer import transformar_conica_general_a_canonica, resumen_transformacion_inversa
 
 
-def gcd(a, b):
+def mcd(a, b):
     """Calcula máximo común divisor usando Euclides."""
     while b:
         a, b = b, a % b
     return a
 
 
-def simplify_fraction(numerator, denominator):
+def simplificar_fraccion(numerator, denominator):
     """Simplifica una fracción retornando (num_simplificado, den_simplificado)."""
     if denominator == 0:
         raise ValueError("Denominador no puede ser cero")
     
-    factor = gcd(abs(numerator), abs(denominator))
+    factor = mcd(abs(numerator), abs(denominator))
     return numerator // factor, denominator // factor
 
 
-def calculate_v(dv):
+def calcular_v(dv):
     """
     Calcula variable v basada en el dígito verificador.
     - Si DV = 'K', v = 10
@@ -40,7 +40,7 @@ def calculate_v(dv):
         return int(dv)
 
 
-def round_to_2_decimals(value):
+def redondear_a_2_decimales(value):
     """
     Redondea un número a máximo 2 decimales.
     Si el resultado es un número entero, lo muestra sin decimales.
@@ -57,7 +57,7 @@ def round_to_2_decimals(value):
     return rounded
 
 
-def build_general_equation(A, B, C, D, E, A_frac=None, B_frac=None, use_fractions=False):
+def construir_ecuacion_general(A, B, C, D, E, A_frac=None, B_frac=None, use_fractions=False):
     """
     Construye la ecuación general en formato matemático correcto.
     
@@ -77,7 +77,7 @@ def build_general_equation(A, B, C, D, E, A_frac=None, B_frac=None, use_fraction
     if use_fractions and A_frac:
         A_str = f"{A_frac[0]}/{A_frac[1]}"
     else:
-        A_val = round_to_2_decimals(A)
+        A_val = redondear_a_2_decimales(A)
         A_str = str(A_val)
     
     if A >= 0:
@@ -89,7 +89,7 @@ def build_general_equation(A, B, C, D, E, A_frac=None, B_frac=None, use_fraction
     if use_fractions and B_frac:
         B_str = f"{B_frac[0]}/{B_frac[1]}"
     else:
-        B_val = round_to_2_decimals(B)
+        B_val = redondear_a_2_decimales(B)
         B_str = str(B_val)
     
     if B >= 0:
@@ -106,7 +106,7 @@ def build_general_equation(A, B, C, D, E, A_frac=None, B_frac=None, use_fraction
     return equation
 
 
-def show_coefficient_procedure(digits, dv, use_fractions=True):
+def mostrar_procedimiento_coeficientes(digits, dv, use_fractions=True):
     """
     Genera el procedimiento paso a paso para el cálculo de coeficientes.
     
@@ -118,13 +118,13 @@ def show_coefficient_procedure(digits, dv, use_fractions=True):
     Retorna string con el procedimiento detallado
     """
     d1, d2, d3, d4, d5, d6, d7, d8 = digits
-    v = calculate_v(dv)
+    v = calcular_v(dv)
     
     # Calcular valores
     sum_d1_d2 = d1 + d2
     sum_d3_d4 = d3 + d4
-    A_num, A_den = simplify_fraction(sum_d1_d2, v)
-    B_num, B_den = simplify_fraction(sum_d3_d4, v)
+    A_num, A_den = simplificar_fraccion(sum_d1_d2, v)
+    B_num, B_den = simplificar_fraccion(sum_d3_d4, v)
     A = sum_d1_d2 / v
     B = sum_d3_d4 / v
     C = -(d5 + d6)
@@ -141,7 +141,7 @@ def show_coefficient_procedure(digits, dv, use_fractions=True):
     if use_fractions:
         procedure += f"  Simplificacion: A = {A_num}/{A_den}\n"
     else:
-        procedure += f"  Resultado: A = {round_to_2_decimals(A)}\n"
+        procedure += f"  Resultado: A = {redondear_a_2_decimales(A)}\n"
     
     # Procedimiento para B
     procedure += f"\nCoeficiente B:\n"
@@ -151,7 +151,7 @@ def show_coefficient_procedure(digits, dv, use_fractions=True):
     if use_fractions:
         procedure += f"  Simplificacion: B = {B_num}/{B_den}\n"
     else:
-        procedure += f"  Resultado: B = {round_to_2_decimals(B)}\n"
+        procedure += f"  Resultado: B = {redondear_a_2_decimales(B)}\n"
     
     # Procedimiento para C
     procedure += f"\nCoeficiente C:\n"
@@ -174,7 +174,7 @@ def show_coefficient_procedure(digits, dv, use_fractions=True):
     return procedure
 
 
-def calculate_coefficients(digits, dv):
+def calcular_coeficientes(digits, dv):
     """
     Calcula los coeficientes A, B, C, D, E.
     
@@ -191,16 +191,16 @@ def calculate_coefficients(digits, dv):
     """
     d1, d2, d3, d4, d5, d6, d7, d8 = digits
     
-    v = calculate_v(dv)
+    v = calcular_v(dv)
     
     # Calcular valores iniciales
     sum_d1_d2 = d1 + d2
-    A_num, A_den = simplify_fraction(sum_d1_d2, v)
+    A_num, A_den = simplificar_fraccion(sum_d1_d2, v)
     A = sum_d1_d2 / v
     
     # Calcular B = (d_3 + d_4) / v
     sum_d3_d4 = d3 + d4
-    B_num, B_den = simplify_fraction(sum_d3_d4, v)
+    B_num, B_den = simplificar_fraccion(sum_d3_d4, v)
     B = sum_d3_d4 / v
     
     # Calcular C = -(d_5 + d_6)
@@ -223,43 +223,43 @@ def calculate_coefficients(digits, dv):
     # ================================================================
     # APLICAR AJUSTES DE CÓNICAS (Módulo 3)
     # ================================================================
-    A, B, (A_num, A_den), (B_num, B_den), adjustments = apply_conic_rules(
+    A, B, (A_num, A_den), (B_num, B_den), adjustments = aplicar_reglas_conicas(
         A, B, (A_num, A_den), (B_num, B_den), digits
     )
     
     # ================================================================
     # CLASIFICAR CÓNICA (Módulo 4)
     # ================================================================
-    conic_classification = classify_conic(A, B, C, D, E)
+    conic_classification = clasificar_conica(A, B, C, D, E)
     
     # ================================================================
     # GENERAR EXPLICACIONES TEXTUALES (Módulo 5)
     # ================================================================
-    explanation_fraction = generate_equation_construction_explanation(
+    explanation_fraction = generar_explicacion_construccion_ecuacion(
         digits, dv, A, B, C, D, E, 
         (A_num, A_den), (B_num, B_den), v, adjustments,
         conic_classification['type'], use_fractions=True
     )
     
-    explanation_decimal = generate_equation_construction_explanation(
+    explanation_decimal = generar_explicacion_construccion_ecuacion(
         digits, dv, A, B, C, D, E, 
         (A_num, A_den), (B_num, B_den), v, adjustments,
         conic_classification['type'], use_fractions=False
     )
     
-    adjusted_comparison = generate_adjusted_equation_comparison(
+    adjusted_comparison = generar_comparacion_ecuacion_ajustada(
         A_before_adjustments, B_before_adjustments, A, B, adjustments
     )
     
     # ================================================================
     # TRANSFORMACIÓN A FORMA CANÓNICA (Módulo 6)
     # ================================================================
-    canonical_result = transform_conic_general_to_canonical(
+    canonical_result = transformar_conica_general_a_canonica(
         A, B, C, D, E, conic_classification['type']
     )
     
     # Generar procedimiento inverso
-    inverse_proc = inverse_transformation_summary(
+    inverse_proc = resumen_transformacion_inversa(
         A, B, C, D, E, conic_classification['type']
     )
     
@@ -275,8 +275,8 @@ def calculate_coefficients(digits, dv):
         'adjustments': adjustments,
         'conic_type': conic_classification['type'],
         'conic_classification': conic_classification,
-        'equation_fraction': build_general_equation(A, B, C, D, E, A_frac=(A_num, A_den), B_frac=(B_num, B_den), use_fractions=True),
-        'equation_decimal': build_general_equation(A, B, C, D, E, A_frac=(A_num, A_den), B_frac=(B_num, B_den), use_fractions=False),
+        'equation_fraction': construir_ecuacion_general(A, B, C, D, E, A_frac=(A_num, A_den), B_frac=(B_num, B_den), use_fractions=True),
+        'equation_decimal': construir_ecuacion_general(A, B, C, D, E, A_frac=(A_num, A_den), B_frac=(B_num, B_den), use_fractions=False),
         'explanation_fraction': explanation_fraction,
         'explanation_decimal': explanation_decimal,
         'adjusted_comparison': adjusted_comparison,
