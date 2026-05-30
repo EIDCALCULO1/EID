@@ -1,136 +1,218 @@
-# Validador de RUT y Generador de Ecuaciones de Cónicas
+# Analizador Integral de Cónicas desde RUT Chileno
 
-Aplicación Python para validar RUTs chilenos y generar ecuaciones de cónicas a partir de los dígitos del RUT.
+Sistema completo de 9 módulos para validar RUTs chilenos, generar ecuaciones de cónicas, transformarlas a forma canónica, renderizar gráficos y analizar funciones por partes con discontinuidades.
 
-## Descripción
+## Descripción General
 
-Este proyecto implementa un sistema completo de 6 módulos que:
+Este proyecto implementa un **sistema completo de 9 módulos** que procesa un RUT chileno y realiza:
 
-1. **Módulo 1 - Validación:** Valida RUTs chilenos usando el algoritmo Módulo 11 con procedimiento paso a paso
-2. **Módulo 2 - Coeficientes:** Calcula (A, B, C, D, E) para la ecuación general de cónicas a partir de los dígitos del RUT
-3. **Módulo 3 - Ajustes:** Aplica 3 ajustes específicos para generar distintos tipos de cónicas
-4. **Módulo 4 - Clasificación:** Clasifica automáticamente el tipo de cónica (circunferencia, elipse, hipérbola, parábola)
-5. **Módulo 5 - Explicaciones:** Genera explicaciones detalladas con 5 pasos de la construcción de la ecuación
-6. **Módulo 6 - Forma Canónica:** Transforma la ecuación general a canónica mostrando el completamiento de cuadrados paso a paso
+1. **Validación del RUT** con algoritmo Módulo 11
+2. **Cálculo de coeficientes** (A, B, C, D, E) para ecuación general de cónicas
+3. **Ajustes automáticos** para generar variedad de cónicas
+4. **Clasificación automática** del tipo de cónica
+5. **Explicaciones detalladas** de la construcción de ecuaciones
+6. **Transformación a forma canónica** con completamiento de cuadrados
+7. **Interfaz gráfica** intuitiva (GUI con Tkinter)
+8. **Renderizado de gráficos** de cónicas en plano cartesiano
+9. **Análisis de funciones por partes** con discontinuidades
 
 ## Estructura del Proyecto
 
 ```
-├── main.py                              # Programa principal (interfaz de usuario)
-├── src/
-│   ├── rut_validator.py                # Módulo 1: Validación de RUTs
-│   ├── coefficient_engine.py           # Módulo 2: Motor de cálculo de coeficientes
-│   ├── conic_rules_adjuster.py         # Módulo 3: Ajustes de cónicas
-│   ├── conic_classifier.py             # Módulo 4: Clasificador de cónicas
-│   ├── text_generator.py               # Módulo 5: Generador de explicaciones
-│   └── canonical_transformer.py        # Módulo 6: Transformación a forma canónica
+├── main.py                              # Orquestador principal (CLI + GUI)
 ├── README.md                            # Este archivo
+├── .gitignore
+│
+└── src/
+    ├── __init__.py
+    ├── rut_validator.py                # Módulo 1: Validación RUT (Módulo 11)
+    ├── coefficient_engine.py           # Módulo 2: Orquestador (invoca M3-M6, M9)
+    ├── conic_rules_adjuster.py         # Módulo 3: 3 ajustes específicos
+    ├── conic_classifier.py             # Módulo 4: Clasificación de 4 tipos
+    ├── text_generator.py               # Módulo 5: Explicaciones paso a paso
+    ├── canonical_transformer.py        # Módulo 6: General → Canónica
+    ├── gui_interface.py                # Módulo 7: GUI Tkinter profesional
+    ├── graphics_renderer.py            # Módulo 8: Renderizado Matplotlib (sin numpy)
+    └── piecewise_functions_analyzer.py # Módulo 9: Funciones por partes
 ```
 
-## Uso
+## Especificación Detallada de Módulos
 
-Ejecutar el programa principal:
+### Módulo 1: Validador RUT 🆔
+**Archivo:** `src/rut_validator.py`
 
+Valida RUTs chilenos usando **algoritmo Módulo 11**:
+- Formato: XX.XXX.XXX-X o XX.XXX.XXXx
+- Soporta K/k como dígito verificador  
+- Multiplicadores: 2-7 (derecha a izquierda)
+- Procedimiento paso a paso con justificaciones
+- Manejo de errores con mensajes descriptivos
+
+### Módulo 2: Motor de Coeficientes 🔢
+**Archivo:** `src/coefficient_engine.py`
+
+Orquestador central que coordina módulos:
+- Calcula variable v según dígito verificador
+- Computa coeficientes: A, B, C, D, E
+- Invoca Módulos 3, 4, 5, 6, 9 automáticamente
+- Retorna diccionario completo con todos los resultados
+
+### Módulo 3: Ajustes de Cónicas ⚙️
+**Archivo:** `src/conic_rules_adjuster.py`
+
+**3 reglas de ajuste secuenciales:**
+- Hipérbolas (d₈ impar): B = -B
+- Circunferencias (d₁ = d₂): B = A
+- Parábolas ((d₅+d₆) % 3 = 0): A=0 o B=0
+
+### Módulo 4: Clasificador Geométrico 📐
+**Archivo:** `src/conic_classifier.py`
+
+Clasifica **4 tipos de cónicas** automáticamente:
+- Circunferencia: A = B ≠ 0, A·B > 0
+- Elipse: A ≠ B, A·B > 0
+- Hipérbola: A·B < 0
+- Parábola: A = 0 ∨ B = 0
+
+### Módulo 5: Generador de Explicaciones 📝
+**Archivo:** `src/text_generator.py`
+
+Genera **5 pasos detallados** de construcción de ecuación:
+- Cálculo de v y coeficientes
+- Aplicación de ajustes
+- Comparación antes/después
+- Ecuación final en fracciones y decimales
+
+### Módulo 6: Transformación Canónica ✨
+**Archivo:** `src/canonical_transformer.py`
+
+Transforma **Ecuación General → Forma Canónica** para **4 cónicas**:
+- Circunferencia: (x-h)² + (y-k)² = r²
+- Elipse: (x-h)²/a² + (y-k)²/b² = 1
+- Hipérbola: (x-h)²/a² - (y-k)²/b² = 1
+- Parábola: (y-k)² = 4p(x-h)
+
+Incluye completamiento de cuadrados paso a paso y procedimiento inverso.
+
+### Módulo 7: Interfaz Gráfica (GUI) 🖥️
+**Archivo:** `src/gui_interface.py`
+
+**Interfaz Tkinter profesional:**
+- Campo entrada para RUT
+- Selector formato (fracción/decimal)
+- Panel izquierdo: desarrollo paso a paso
+- Panel derecho: gráfico en tiempo real
+- Footer: parámetros canónicos
+- Tema moderno con paleta azul corporativa
+
+### Módulo 8: Renderizado de Gráficos 📊
+**Archivo:** `src/graphics_renderer.py`
+
+**Dibuja cónicas en plano cartesiano** usando Matplotlib:
+- Circunferencia: Centro + perímetro
+- Elipse: Semiejes + focos
+- Hipérbola: Dos ramas + centro
+- Parábola: Curva + vértice + directriz
+
+**SIN numpy/scipy/sympy:** Implementación pura en Python con métodos auxiliares.
+
+### Módulo 9: Análisis de Funciones por Partes 🔄
+**Archivo:** `src/piecewise_functions_analyzer.py`
+
+Analiza **3 tipos de discontinuidades** (determinados por **d8 % 3**):
+
+- **Caso 0:** Discontinuidad Removible (agujero)
+- **Caso 1:** Discontinuidad de Salto (finito)
+- **Caso 2:** Discontinuidad Infinita (asíntota vertical)
+
+Para cada caso genera: función, procedimiento 5-6 pasos, análisis de límites, tabla de valores, tipo de discontinuidad.
+
+## Modo de Uso
+
+### Modo GUI (Default - Recomendado)
 ```bash
 python main.py
 ```
+Abre interfaz gráfica Tkinter interactiva.
 
-### Ejemplo de Interacción
+### Modo CLI
+```bash
+python main.py --cli
+# o
+python main.py cli
+```
+Interfaz de línea de comandos con prompts.
+
+## Flujo de Ejecución  
 
 ```
-Ingrese el RUT a validar (formato: XX.XXX.XXX-X): 22.303.126-9
-¿Desea ver los resultados en fracción (f) o decimales (d)? (f/d): f
+RUT Input (Módulo 1)
+    ↓
+Validación 
+    ↓
+Cálculo Coeficientes (Módulo 2)
+    ├→ Ajustes (Módulo 3)
+    ├→ Clasificación (Módulo 4)  
+    ├→ Explicaciones (Módulo 5)
+    ├→ Transformación (Módulo 6)
+    └→ Función por Partes (Módulo 9)
+    ↓
+Salida Resultados
+    ├→ GUI (Módulo 7)
+    ├→ Gráfico (Módulo 8)
+    └→ Análisis (Módulo 9)
 ```
 
-## Características Principales
+## Conformidad con Pauta
 
-### Validación de RUT
-- Valida el formato XX.XXX.XXX-X
-- Aplica el algoritmo Módulo 11
-- Soporta tanto 'K' como 'k' como dígito verificador
-- Proporciona mensajes de error detallados
+### Algoritmos Matemáticos ✅
+- Validación RUT Módulo 11
+- Cálculo correcto de coeficientes
+- 3 ajustes específicos
+- Clasificación automática 4 tipos
+- Completamiento de cuadrados
+- Transformación a canónica
+- Análisis de funciones por partes
 
-### Cálculo de Coeficientes
-- **A** = (d₁ + d₂) / v
-- **B** = (d₃ + d₄) / v  
-- **C** = -(d₅ + d₆)
-- **D** = -(d₇ + d₈)
-- **E** = d₁ + d₃ + d₅ + d₇
+### Requerimientos Funcionales ✅
+- Validador con procedimiento paso a paso
+- Ecuación general con coeficientes A, B, C, D, E
+- 3 Ajustes de cónicas
+- Clasificación automática
+- Explicaciones paso a paso
+- Transformación a forma canónica
+- Parámetros canónicos extraídos
+- Procedimiento inverso
+- Función por partes (3 casos)
+- Análisis de límites y discontinuidades
+- Gráficos en plano cartesiano
+- Interfaz gráfica profesional
+- Todo integrado en un programa
 
-Donde v = dígito verificador (como número: K→10, 0→11, otros→su valor)
-
-### Ajustes para Cónicas
-
-**Ajuste 1 - Hipérbolas:**
-- Si d₈ es impar → B = -B
-
-**Ajuste 2 - Circunferencias:**
-- Si d₁ = d₂ → B = A
-
-**Ajuste 3 - Parábolas:**
-- Si (d₅ + d₆) es múltiplo de 3:
-  - Si d₇ es par → B = 0 (eje vertical)
-  - Si d₇ es impar → A = 0 (eje horizontal)
-
-## Ejemplos de Salida
-
-### RUT con Ajuste 2 (Circunferencia)
-```
-RUT: 22.303.126-9
-AJUSTES APLICADOS:
-  * Ajuste 2: d1 = d2 = 2 -> Se impone B = A (circunferencia)
-
-RESUMEN DE COEFICIENTES:
-  A = 4/9
-  B = 4/9
-  C = -4
-  D = -8
-  E = 10
-
-Ecuación General: 4/9x² + 4/9y² - 4x - 8y + 10 = 0
-```
-
-### RUT sin Ajustes
-```
-RUT: 12.345.678-5
-No hay ajustes especiales
-
-RESUMEN DE COEFICIENTES:
-  A = 3/5
-  B = 7/5
-  C = -11
-  D = -15
-  E = 16
-
-Ecuación General: 3/5x² + 7/5y² - 11x - 15y + 16 = 0
-```
-
-## Módulo 6: Transformación a Forma Canónica
-
-El Módulo 6 transforma automáticamente la ecuación general a su forma canónica, justificando cada paso algebraico:
-
-- **Circunferencia:** $(x - h)^2 + (y - k)^2 = r^2$
-- **Elipse:** $\frac{(x-h)^2}{a^2} + \frac{(y-k)^2}{b^2} = 1$
-- **Hipérbola:** $\frac{(x-h)^2}{a^2} - \frac{(y-k)^2}{b^2} = 1$
-- **Parábola:** $(x-h)^2 = 4p(y-k)$ o $(y-k)^2 = 4p(x-h)$
-
-El procedimiento incluye:
-- Completamiento de cuadrados paso a paso
-- Justificación de cada operación algebraica
-- Extracción de parámetros canónicos (centro, radio, semiejes, etc.)
-- Procedimiento inverso (canónica → general)
+### Código Profesional ✅
+- GitHub usage
+- 3+ commits por persona  
+- Organización modular
+- Nombres descriptivos
+- Comentarios necesarios
+- Manejo de errores
+- Código limpio y legible
 
 ## Requisitos
 
 - Python 3.7+
+- Tkinter (incluido en Python)
+- Matplotlib
+- Sin numpy, scipy, sympy, pandas
 
 ## Notas Técnicas
 
-- Los coeficientes se simplifican automáticamente usando el máximo común divisor con la funcion "gdc"
-- Los decimales se redondean a 2 lugares
-- La ecuación respeta correctamente los signos (no usa "+ -" notation)
-- La aplicación maneja correctamente caracteres especiales y acentos en terminal Windows
+- Coeficientes simplificados automáticamente
+- Decimales redondeados a 2 lugares
+- Todo en Python puro (sin librerías prohibidas)
+- Compatible Windows, MacOS, Linux
 
 ## Asignatura
 
 MAT1186 - Introducción al Cálculo - Semestre 3, 2026
+

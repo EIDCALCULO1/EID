@@ -186,6 +186,43 @@ def run_cli() -> None:
     if inverse:
         print(inverse)
     
+    # ================================================================
+    # MÓDULO 9: ANÁLISIS DE FUNCIONES POR PARTES
+    # ================================================================
+    print("\n" + "="*70)
+    print("MÓDULO 9: ANÁLISIS DE FUNCIONES POR PARTES")
+    print("="*70)
+    
+    piecewise = coeff.get('piecewise_analysis')
+    if piecewise:
+        print(f"\nSelección automática: {piecewise['selection_criterion']}")
+        print(f"Tipo asignado: {piecewise['case_name']}")
+        print(f"\n{piecewise['procedure']}")
+        
+        # Mostrar tabla de valores
+        print(piecewise['table'])
+        
+        # Mostrar análisis detallado
+        print(f"\n{'='*70}")
+        print("ANÁLISIS DE DISCONTINUIDAD")
+        print(f"{'='*70}")
+        analysis = piecewise['analysis']
+        print(f"\nTipo de discontinuidad: {analysis['discontinuity_type']}")
+        print(f"Definición: {analysis['discontinuity_definition']}")
+        print(f"\nPunto de discontinuidad: x = {piecewise['discontinuity_point']}")
+        print(f"Límite lateral izquierdo:  lim(x→{piecewise['discontinuity_point']}⁻) f(x) = {analysis['left_limit']}")
+        print(f"Límite lateral derecho:   lim(x→{piecewise['discontinuity_point']}⁺) f(x) = {analysis['right_limit']}")
+        print(f"\nAnálisis de continuidad:")
+        print(f"  • La función es continua en x = {piecewise['discontinuity_point']}: {analysis['is_continuous']}")
+        print(f"  • Razón: {analysis['reason']}")
+        
+        if 'jump_magnitude' in analysis:
+            print(f"  • Magnitud del salto: {analysis['jump_magnitude']}")
+        if 'asymptote' in analysis:
+            print(f"  • Asíntota vertical: {analysis['asymptote']}")
+        
+        print(f"\nMétodo de remediación: {analysis['removal_method']}")
+    
     print("\n" + "="*70 + "\n")
 
 

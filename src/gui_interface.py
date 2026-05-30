@@ -25,8 +25,15 @@ class InterfazAnalisisConicas:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.root.title("Análisis de Cónicas desde RUT")
-        self.root.geometry("1320x820")
-        self.root.minsize(1100, 720)
+        
+        # Configurar resizable ANTES de establecer geometry
+        self.root.resizable(True, True)
+        
+        # Establecer tamaño inicial
+        self.root.geometry("1320x900")
+        
+        # Establecer tamaño mínimo
+        self.root.minsize(1100, 900)
 
         # Estilos y fuentes modernos
         self.style = ttk.Style(self.root)
@@ -56,17 +63,30 @@ class InterfazAnalisisConicas:
     def _build_interface(self) -> None:
 
         """
-        Construye la estructura principal de la ventana:
-        - Cabecera con título
-        - Área central dividida en panel izquierdo/derecho (PanedWindow)
-        - Footer con parámetros y instrucciones
+        Construye la estructura principal de la ventana usando grid para control preciso del espacio:
+        - Cabecera con título (fila 0) - FIJA
+        - Área central scrollable con paneles y footer (fila 1)
+        - Scrollbar global que afecta el contenido de body y footer
+        
+        Usa pesos de grid para que al redimensionar:
+        - El header mantiene altura fija
+        - El área scrollable dominan el crecimiento
+        - Una única scrollbar global controla todo el contenido debajo del header
         """
+
+        # Configurar grid en la ventana principal
+        self.root.grid_rowconfigure(0, weight=0, minsize=70)  # header: altura fija 70px
+        self.root.grid_rowconfigure(1, weight=1, minsize=600) # scrollable content: crece
+        self.root.grid_columnconfigure(0, weight=1)
 
         # Fondo de la ventana principal
         self.root.configure(bg=self.palette['surface'])
 
+        # HEADER: Cabecera con título
         header_frame = tk.Frame(self.root, bg=self.palette['primary'], height=70)
-        header_frame.pack(side="top", fill="x")
+        header_frame.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+        header_frame.grid_propagate(False)
+
         tk.Label(
             header_frame,
             text="Interfaz Gráfica de Cónicas",
@@ -75,8 +95,35 @@ class InterfazAnalisisConicas:
             font=self.font_heading
         ).pack(padx=20, pady=14, anchor="w")
 
-        body_frame = tk.Frame(self.root, bg="#f7f9fb")
-        body_frame.pack(fill="both", expand=True, padx=12, pady=12)
+        # CANVAS SCROLLABLE: Contenedor principal para body y footer con scrollbar global
+        scrollable_container = tk.Frame(self.root, bg="#f7f9fb")
+        scrollable_container.grid(row=1, column=0, sticky="nsew", padx=12, pady=12)
+        scrollable_container.grid_rowconfigure(0, weight=1)
+        scrollable_container.grid_columnconfigure(0, weight=1)
+
+        main_canvas = tk.Canvas(scrollable_container, bg="#f7f9fb", bd=0, highlightthickness=0)
+        main_scrollbar = ttk.Scrollbar(scrollable_container, orient="vertical", command=main_canvas.yview)
+        scrollable_frame = tk.Frame(main_canvas, bg="#f7f9fb")
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: main_canvas.configure(scrollregion=main_canvas.bbox("all"))
+        )
+
+        main_canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        main_canvas.configure(yscrollcommand=main_scrollbar.set)
+
+        main_canvas.grid(row=0, column=0, sticky="nsew")
+        main_scrollbar.grid(row=0, column=1, sticky="ns")
+
+        # Mapear rueda del mouse para scroll global
+        def _on_mousewheel(event):
+            main_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        main_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        # BODY: Área central con paneles izquierdo y derecho
+        body_frame = tk.Frame(scrollable_frame, bg="#f7f9fb")
+        body_frame.pack(fill="both", expand=True, padx=0, pady=0)
 
         # Paned window para redimensionado intuitivo
         paned = tk.PanedWindow(body_frame, orient="horizontal", sashrelief="raised")
@@ -90,8 +137,9 @@ class InterfazAnalisisConicas:
         self._build_left_panel(left_panel)
         self._build_right_panel(right_panel)
 
-        footer_frame = tk.Frame(self.root, bg="#d3d3d3", height=130)
-        footer_frame.pack(side="bottom", fill="x", padx=12, pady=(0,12))
+        # FOOTER: Parámetros geométricos e instrucciones (sin scrollbar local)
+        footer_frame = tk.Frame(scrollable_frame, bg="#d3d3d3")
+        footer_frame.pack(fill="both", expand=False, padx=0, pady=(12, 0))
         self._build_footer_panel(footer_frame)
 
     def _build_left_panel(self, parent: tk.Frame) -> None:
@@ -156,7 +204,7 @@ class InterfazAnalisisConicas:
     def _build_right_panel(self, parent: tk.Frame) -> None:
         """Construye el panel derecho que muestra el resumen y el gráfico de la cónica.
 
-        El panel derecho contiene un resumen textual y un contenedor donde se
+        El panel derecho contiene un resumen textual con scrollbar y un contenedor donde se
         inserta el `FigureCanvasTkAgg` devuelto por el renderer.
         """
 
@@ -165,22 +213,28 @@ class InterfazAnalisisConicas:
 
         ttk.Label(top_right, text="Resumen de Cónica", font=self.font_normal).pack(anchor="w")
 
-        summary_frame = ttk.Frame(top_right)
-        summary_frame.pack(fill="x", pady=(8, 6))
+        # Contenedor para text widget con scrollbar
+        summary_container = ttk.Frame(top_right)
+        summary_container.pack(fill="both", expand=True, pady=(8, 6))
 
         self.summary_text = tk.Text(
-            summary_frame,
-            height=10,
+            summary_container,
             wrap="word",
             bg="#ffffff",
             fg="#111111",
             font=self.font_normal,
             padx=8,
             pady=8,
-            bd=0
+            bd=0,
+            height=8
         )
-        self.summary_text.pack(fill="x", expand=False)
+        self.summary_text.pack(side="left", fill="both", expand=True)
         self.summary_text.config(state="disabled")
+
+        # Scrollbar para el resumen
+        summary_scroll = ttk.Scrollbar(summary_container, orient="vertical", command=self.summary_text.yview)
+        summary_scroll.pack(side="right", fill="y")
+        self.summary_text['yscrollcommand'] = summary_scroll.set
 
         self.canvas_container = ttk.Frame(parent)
         self.canvas_container.pack(fill="both", expand=True, padx=12, pady=(6, 12))
@@ -201,20 +255,24 @@ class InterfazAnalisisConicas:
 
         Los campos del footer se usan durante la defensa para completar
         parámetros como centro, focos y directriz.
+        
+        Nota: El footer ahora es controlado por la scrollbar global,
+        sin scrollbar local. El contenido se expande naturalmente.
         """
 
-        # Footer con dos columnas compactas
-        container = ttk.Frame(parent, padding=(12, 8))
-        container.pack(fill="both", expand=True)
+        # Configurar padding para el footer
+        content_frame = tk.Frame(parent, bg="#d3d3d3")
+        content_frame.pack(fill="both", expand=False, padx=12, pady=8)
 
-        left_footer = ttk.Frame(container)
+        # Footer con dos columnas de contenido
+        left_footer = ttk.Frame(content_frame)
         left_footer.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
 
-        right_footer = ttk.Frame(container)
+        right_footer = ttk.Frame(content_frame)
         right_footer.grid(row=0, column=1, sticky="nsew")
 
-        container.columnconfigure(0, weight=1)
-        container.columnconfigure(1, weight=1)
+        content_frame.columnconfigure(0, weight=1)
+        content_frame.columnconfigure(1, weight=1)
 
         ttk.Label(left_footer, text="Parámetros geométricos (complete)", font=self.font_normal).pack(anchor="w", pady=(0, 6))
 

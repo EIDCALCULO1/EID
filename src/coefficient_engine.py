@@ -1,12 +1,14 @@
 """
 Módulo 2: Motor de Coeficientes Base
 Calcula los coeficientes iniciales A, B, C, D, E a partir del RUT.
+Orquesta todos los módulos: 1-6 (cónicas) y 9 (funciones por partes).
 """
 
 from src.conic_rules_adjuster import aplicar_reglas_conicas
 from src.conic_classifier import clasificar_conica
 from src.text_generator import generar_explicacion_construccion_ecuacion, generar_comparacion_ecuacion_ajustada
 from src.canonical_transformer import transformar_conica_general_a_canonica, resumen_transformacion_inversa
+from src.piecewise_functions_analyzer import AnalizadorFuncionesPorPartes
 
 
 def mcd(a, b):
@@ -263,6 +265,12 @@ def calcular_coeficientes(digits, dv):
         A, B, C, D, E, conic_classification['type']
     )
     
+    # ================================================================
+    # ANÁLISIS DE FUNCIONES POR PARTES (Módulo 9)
+    # ================================================================
+    piecewise_analyzer = AnalizadorFuncionesPorPartes(digits, dv)
+    piecewise_analysis = piecewise_analyzer.get_full_analysis()
+    
     return {
         'A': A,
         'B': B,
@@ -281,5 +289,6 @@ def calcular_coeficientes(digits, dv):
         'explanation_decimal': explanation_decimal,
         'adjusted_comparison': adjusted_comparison,
         'canonical_transformation': canonical_result,
-        'inverse_transformation': inverse_proc
+        'inverse_transformation': inverse_proc,
+        'piecewise_analysis': piecewise_analysis
     }
