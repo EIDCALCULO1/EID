@@ -216,9 +216,8 @@ def transformar_elipse_a_canonica(A, B, C, D, E):
     b_squared = rhs / B
     
     # Calcular a y b
-    import math
-    a = math.sqrt(abs(a_squared)) if a_squared > 0 else None
-    b = math.sqrt(abs(b_squared)) if b_squared > 0 else None
+    a = (a_squared ** 0.5) if a_squared > 0 else None
+    b = (b_squared ** 0.5) if b_squared > 0 else None
     
     if a and b:
         proc += f"FORMA CANÓNICA: (x - {h_x})²/{a_squared} + (y - {h_y})²/{b_squared} = 1\n"
@@ -297,9 +296,8 @@ def transformar_hiperbola_a_canonica(A, B, C, D, E):
     b_squared = rhs / B
     
     # Calcular a y b
-    import math
-    a = math.sqrt(abs(a_squared)) if a_squared > 0 else None
-    b = math.sqrt(abs(b_squared)) if b_squared < 0 else None
+    a = (a_squared ** 0.5) if a_squared > 0 else None
+    b = ((-b_squared) ** 0.5) if b_squared < 0 else None
     
     if a and b:
         proc += f"FORMA CANÓNICA: (x - {h_x})²/{a_squared} - (y - {h_y})²/{-b_squared} = 1\n"

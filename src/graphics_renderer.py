@@ -1,31 +1,142 @@
 """
-Módulo 8: Renderizado del Gráfico de Cónicas
+Módulo 8: Motor de Renderizado de Gráficos de Cónicas
+======================================================
+Motor gráfico corregido y completo para renderizar cónicas usando
+Matplotlib embebido en Tkinter (FigureCanvasTkAgg).
 
-Dibuja la cónica matemáticamente correcta a partir de los coeficientes
-calculados y del tipo de cónica identificado.
+RESTRICCIÓN CRÍTICA:  SIN math, numpy, sympy, scipy, pandas.
+Todas las raíces cuadradas y potencias usan aritmética pura de Python:
+    sqrt(x) → x ** 0.5
+    abs(x)  → x if x >= 0 else -x
+    round(x, n) → round() nativo de Python
 
-SIN DEPENDENCIAS DE: numpy, scipy, sympy, pandas (solo matplotlib permitido)
+Características del motor:
+- Rangos de ejes calculados dinámicamente según (h, k, a, b, r, p)
+- Aspect ratio 'equal' para no deformar figuras
+- Bounding-box para elipse/circunferencia (patches.Ellipse/Circle)
+- Parametrización angular para hipérbola (sin despejar y de x)
+- Dibujo explícito de: Centro, Vértices, Focos, Ejes de simetría,
+  Directriz (parábola), Asíntotas (hipérbola)
 """
 
-import math
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, Tuple
 
 import matplotlib
+matplotlib.use("TkAgg")
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 import matplotlib.patches as patches
+import matplotlib.lines as mlines
 
+
+# ---------------------------------------------------------------------------
+# Utilidades matemáticas puras (SIN math / numpy / sympy)
+# ---------------------------------------------------------------------------
+
+def _sqrt(x: float) -> float:
+    """Raíz cuadrada segura. Retorna 0 si x es negativo por error de redondeo."""
+    if x < 0:
+        x = 0.0
+    return x ** 0.5
+
+
+def _abs(x: float) -> float:
+    return x if x >= 0 else -x
+
+
+def _linspace(start: float, stop: float, num: int) -> List[float]:
+    """Equivalente a numpy.linspace, implementación pura."""
+    if num <= 0:
+        return []
+    if num == 1:
+        return [float(start)]
+    step = (stop - start) / (num - 1)
+    return [start + i * step for i in range(num)]
+
+
+def _arange(start: float, stop: float, step: float) -> List[float]:
+    """Equivalente a numpy.arange, implementación pura."""
+    result = []
+    val = start
+    if step > 0:
+        while val < stop:
+            result.append(val)
+            val += step
+    else:
+        while val > stop:
+            result.append(val)
+            val += step
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Motor de Rangos Dinámicos
+# ---------------------------------------------------------------------------
+
+def _calcular_rango_dinamico(
+    h: float, k: float,
+    radio_x: float, radio_y: float,
+    margen_rel: float = 0.35
+) -> Tuple[float, float, float, float]:
+    """
+    Calcula los límites del plano cartesiano de manera dinámica para que la
+    figura quede siempre completa y centrada.
+
+    Parámetros:
+    - h, k      : centro de la cónica
+    - radio_x   : extensión máxima en X desde el centro (ej. semieje a)
+    - radio_y   : extensión máxima en Y desde el centro (ej. semieje b)
+    - margen_rel: fracción de margen extra sobre el radio (default 35%)
+
+    Retorna: (x_min, x_max, y_min, y_max)
+    """
+    margen_x = radio_x * margen_rel
+    margen_y = radio_y * margen_rel
+
+    # Garantizar un mínimo de 2 unidades de margen para figuras muy pequeñas
+    margen_x = max(margen_x, 2.0)
+    margen_y = max(margen_y, 2.0)
+
+    x_min = h - radio_x - margen_x
+    x_max = h + radio_x + margen_x
+    y_min = k - radio_y - margen_y
+    y_max = k + radio_y + margen_y
+
+    return x_min, x_max, y_min, y_max
+
+
+# ---------------------------------------------------------------------------
+# Clase Principal
+# ---------------------------------------------------------------------------
 
 class RenderizadorGraficosConicas:
-    """Renderiza una cónica en un contenedor Tkinter usando Matplotlib.
-
-    Esta clase encapsula la creación de una figura Matplotlib y su incrustación
-    en un widget Tkinter (`FigureCanvasTkAgg`). Recibe los coeficientes de la
-    ecuación general, el tipo de cónica y opcionalmente datos de la forma
-    canónica para dibujar elementos geométricos (centro, focos, directriz).
-    
-    NOTA: Implementación pura en Python sin numpy/scipy/sympy/pandas.
     """
+    Motor de renderizado de cónicas en un contenedor Tkinter usando Matplotlib.
+
+    Recibe los coeficientes de la ecuación general (A, B, C, D, E),
+    el tipo de cónica y los datos canónicos calculados por el Módulo 6.
+
+    Dibuja de forma visualmente explícita y con colores diferenciados:
+      • La curva de la cónica
+      • Centro
+      • Vértices
+      • Focos
+      • Ejes de simetría (mayor/menor o transverso/conjugado)
+      • Directriz (parábolas)
+      • Asíntotas (hipérbolas)
+
+    Restricción: SIN math, numpy, sympy, scipy, pandas.
+    """
+
+    # Paleta de colores fija para elementos geométricos
+    COLOR_CURVA       = '#1565C0'   # azul profundo
+    COLOR_CENTRO      = '#E53935'   # rojo
+    COLOR_VERTICES    = '#F57C00'   # naranja
+    COLOR_FOCOS       = '#2E7D32'   # verde oscuro
+    COLOR_EJE_MAY     = '#6A1B9A'   # púrpura (eje mayor / transverso)
+    COLOR_EJE_MEN     = '#00838F'   # cian (eje menor / conjugado)
+    COLOR_DIRECTRIZ   = '#AD1457'   # rosa oscuro
+    COLOR_ASINTOTA    = '#795548'   # marrón
 
     def __init__(
         self,
@@ -33,315 +144,666 @@ class RenderizadorGraficosConicas:
         coefficients: Dict[str, float],
         conic_type: str,
         canonical_data: Optional[Dict[str, Any]] = None,
-        figsize=(6, 6)
+        figsize: Tuple[int, int] = (6, 6)
     ) -> None:
-        """Inicializa el renderer.
+        """
+        Inicializa el renderer.
 
         Parámetros:
-        - parent: contenedor Tkinter donde se incrustará el canvas
-        - coefficients: diccionario {'A','B','C','D','E'} de la ecuación general
-        - conic_type: tipo detectado ('elipse','hipérbola','parábola','circunferencia')
-        - canonical_data: valores útiles para el dibujado (h,k,a,b,p,r, etc.)
+        - parent        : contenedor Tkinter donde se incrustará el canvas
+        - coefficients  : {'A','B','C','D','E'} de la ecuación general
+        - conic_type    : 'elipse' | 'hipérbola' | 'parábola' | 'circunferencia'
+        - canonical_data: valores canónicos (h, k, a, b, p, r, axis, type, ...)
+        - figsize       : tamaño de la figura Matplotlib
         """
-
-        self.parent = parent
-        self.coefficients = coefficients
-        self.conic_type = conic_type
+        self.parent        = parent
+        self.coefficients  = coefficients
+        self.conic_type    = conic_type
         self.canonical_data = canonical_data or {}
 
-        # Figura Matplotlib usada para el renderizado
-        self.figure = Figure(figsize=figsize, dpi=100, facecolor="#ffffff")
-        self.ax = self.figure.add_subplot(111)
+        self.figure = Figure(figsize=figsize, dpi=100, facecolor='#FAFAFA')
+        self.ax     = self.figure.add_subplot(111)
         self.canvas = None
 
-    @staticmethod
-    def _linspace(start: float, stop: float, num: int) -> List[float]:
-        """
-        Genera una lista de números espaciados uniformemente (equivalente a np.linspace).
-        
-        Parámetros:
-        - start: valor inicial
-        - stop: valor final (incluido)
-        - num: cantidad de puntos
-        
-        Retorna: lista de números espaciados uniformemente
-        """
-        if num <= 0:
-            return []
-        if num == 1:
-            return [start]
-        
-        step = (stop - start) / (num - 1)
-        return [start + i * step for i in range(num)]
-
-    @staticmethod
-    def _where(condition: List[bool], if_true: List[float], if_false: float = float('nan')) -> List[float]:
-        """
-        Equivalente a np.where - retorna valores según condición.
-        
-        Parámetros:
-        - condition: lista de booleanos
-        - if_true: lista de valores a retornar si condición es True
-        - if_false: valor a retornar si condición es False (default NaN)
-        
-        Retorna: lista con valores seleccionados
-        """
-        result = []
-        for i, cond in enumerate(condition):
-            if cond:
-                result.append(if_true[i] if i < len(if_true) else if_false)
-            else:
-                result.append(if_false)
-        return result
-
-    @staticmethod
-    def _safe_sqrt(value: float) -> float:
-        """
-        Calcula raíz cuadrada de forma segura, retornando NaN si valor es negativo.
-        
-        Parámetros:
-        - value: número a calcular raíz
-        
-        Retorna: raíz cuadrada o NaN
-        """
-        if value >= 0:
-            return math.sqrt(value)
-        else:
-            return float('nan')
+    # ------------------------------------------------------------------
+    # API pública
+    # ------------------------------------------------------------------
 
     def render(self) -> None:
-        """Renderiza la cónica actual en el contenedor Tkinter.
+        """Renderiza la cónica y la incrusta en el widget Tkinter padre."""
+        self._limpiar_contenedor()
+        self._configurar_ejes_base()
 
-        Se encarga de limpiar el contenedor previo, configurar los ejes y
-        delegar al método de dibujo correspondiente según el tipo de cónica.
-        """
-
-        # Limpiar y preparar ejes
-        self._clear_container()
-        self._configure_axes()
-
-        # Seleccionar rutina de dibujo según el tipo
-        if self.conic_type == 'circunferencia':
-            self._draw_circle()
-        elif self.conic_type == 'elipse':
-            self._draw_ellipse()
-        elif self.conic_type == 'hipérbola':
-            self._draw_hyperbola()
-        elif self.conic_type == 'parábola':
-            self._draw_parabola()
+        tipo = self.conic_type
+        if tipo == 'circunferencia':
+            self._dibujar_circunferencia()
+        elif tipo == 'elipse':
+            self._dibujar_elipse()
+        elif tipo == 'hipérbola':
+            self._dibujar_hiperbola()
+        elif tipo == 'parábola':
+            self._dibujar_parabola()
         else:
-            self._draw_message(f"Tipo de cónica no reconocido: {self.conic_type}")
+            self._dibujar_mensaje(f"Tipo no reconocido: {tipo}")
 
-        # Incrustar figura en Tkinter
+        # Leyenda y estética final
+        self.ax.legend(
+            loc='upper right',
+            fontsize=8,
+            framealpha=0.85,
+            edgecolor='#BDBDBD'
+        )
+        self.figure.tight_layout()
+
+        # Incrustar en Tkinter
         self.canvas = FigureCanvasTkAgg(self.figure, master=self.parent)
         self.canvas.draw()
-        self.canvas.get_tk_widget().pack(fill="both", expand=True)
+        self.canvas.get_tk_widget().pack(side="top", fill="both", expand=True, padx=10, pady=10)
 
-    def _configure_axes(self) -> None:
-        """Configura la apariencia básica de los ejes y límites de la figura."""
-
-        self.ax.clear()
-        self.ax.set_facecolor("#f7f7f7")
-        self.ax.grid(True, linestyle='--', linewidth=0.5, color='#999999', alpha=0.6)
-        self.ax.set_xlabel('x')
-        self.ax.set_ylabel('y')
-        # Mantener aspecto igual para que las formas no se deformen
-        self.ax.set_aspect('equal', adjustable='box')
-        # Límites por defecto; se podrían adaptar dinámicamente
-        self.ax.set_xlim(-15, 15)
-        self.ax.set_ylim(-15, 15)
-
-    def _clear_container(self) -> None:
-        """Elimina widgets previos y restaura la figura para un nuevo dibujo."""
-
+    def close(self) -> None:
+        """Destruye el widget y libera la figura."""
         if self.canvas:
             self.canvas.get_tk_widget().destroy()
             self.canvas = None
-        # Limpiar la figura y crear un nuevo axes
+        self.figure.clf()
+
+    # ------------------------------------------------------------------
+    # Configuración de ejes
+    # ------------------------------------------------------------------
+
+    def _limpiar_contenedor(self) -> None:
+        if self.canvas:
+            self.canvas.get_tk_widget().destroy()
+            self.canvas = None
         self.figure.clf()
         self.ax = self.figure.add_subplot(111)
 
-    def _draw_circle(self) -> None:
-        """Dibuja una circunferencia usando los datos canónicos (h,k,r).
+    def _configurar_ejes_base(self) -> None:
+        """Aplica apariencia base; los límites se ajustan en cada _dibujar_*."""
+        ax = self.ax
+        ax.set_facecolor('#F8F9FA')
+        ax.grid(True, linestyle='--', linewidth=0.5, color='#B0BEC5', alpha=0.7)
+        ax.axhline(0, color='#546E7A', linewidth=0.8, zorder=1)
+        ax.axvline(0, color='#546E7A', linewidth=0.8, zorder=1)
+        ax.set_xlabel('x', fontsize=10)
+        ax.set_ylabel('y', fontsize=10)
+        # aspect='equal' se aplica DESPUÉS de calcular los límites dinámicos
+        # para que matplotlib no distorsione la figura
 
-        Si `r` no está disponible, se usa un radio por defecto para que se muestre.
+    def _aplicar_limites(
+        self,
+        x_min: float, x_max: float,
+        y_min: float, y_max: float
+    ) -> None:
         """
+        Aplica los límites calculados dinámicamente y fuerza aspect='equal'
+        ampliando el rango más pequeño para que coincida.
+        """
+        ancho = x_max - x_min
+        alto  = y_max - y_min
 
-        h = self.canonical_data.get('h', 0)
-        k = self.canonical_data.get('k', 0)
-        r = self.canonical_data.get('r', None)
+        if ancho <= 0 or alto <= 0:
+            ancho = alto = 10.0
+
+        # Igualar los rangos para no deformar (aspect equal manual)
+        if ancho > alto:
+            diff = (ancho - alto) / 2
+            y_min -= diff
+            y_max += diff
+        elif alto > ancho:
+            diff = (alto - ancho) / 2
+            x_min -= diff
+            x_max += diff
+
+        self.ax.set_xlim(x_min, x_max)
+        self.ax.set_ylim(y_min, y_max)
+        self.ax.set_aspect('equal', adjustable='box')
+
+    # ------------------------------------------------------------------
+    # Helpers de dibujo
+    # ------------------------------------------------------------------
+
+    def _marcar_punto(
+        self,
+        x: float, y: float,
+        color: str,
+        marcador: str = 'o',
+        tamaño: int = 8,
+        label: Optional[str] = None,
+        zorder: int = 5
+    ) -> None:
+        self.ax.plot(
+            x, y,
+            marker=marcador,
+            color=color,
+            markersize=tamaño,
+            label=label,
+            zorder=zorder,
+            linestyle='None'
+        )
+        if label:
+            # Texto con coordenadas junto al punto
+            self.ax.annotate(
+                f'({x:.3g}, {y:.3g})',
+                xy=(x, y),
+                xytext=(6, 6),
+                textcoords='offset points',
+                fontsize=7,
+                color=color
+            )
+
+    def _dibujar_linea_segmento(
+        self,
+        x1: float, y1: float,
+        x2: float, y2: float,
+        color: str,
+        estilo: str = '--',
+        grosor: float = 1.2,
+        label: Optional[str] = None
+    ) -> None:
+        self.ax.plot(
+            [x1, x2], [y1, y2],
+            color=color,
+            linestyle=estilo,
+            linewidth=grosor,
+            label=label,
+            zorder=3
+        )
+
+    def _dibujar_mensaje(self, mensaje: str) -> None:
+        self.ax.text(
+            0.5, 0.5, mensaje,
+            ha='center', va='center',
+            fontsize=12, color='red',
+            transform=self.ax.transAxes
+        )
+
+    # ------------------------------------------------------------------
+    # CIRCUNFERENCIA
+    # ------------------------------------------------------------------
+
+    def _dibujar_circunferencia(self) -> None:
+        """
+        Circunferencia: (x - h)² + (y - k)² = r²
+        Método: patches.Circle con bounding-box exacta.
+        Elementos: Centro, Radio (indicado en leyenda).
+        """
+        cd  = self.canonical_data
+        h   = float(cd.get('h', 0))
+        k   = float(cd.get('k', 0))
+        r   = cd.get('r', None)
+
         if r is None or r <= 0:
-            # Valor por defecto garantizado para visualización
-            r = 5
+            r = 5.0
+        r = float(r)
 
-        circle = patches.Circle((h, k), radius=r, fill=False, edgecolor='#1f77b4', linewidth=2.5)
-        self.ax.add_patch(circle)
-        # Marcar el centro y leyenda
-        self.ax.plot(h, k, 'ro', label=f'Centro ({h:.2f}, {k:.2f})')
-        self.ax.set_title('Circunferencia')
-        self.ax.legend()
+        # --- Curva ---
+        circulo = patches.Circle(
+            (h, k), radius=r,
+            fill=False,
+            edgecolor=self.COLOR_CURVA,
+            linewidth=2.5,
+            zorder=4,
+            label=f'Circunferencia r={r:.4g}'
+        )
+        self.ax.add_patch(circulo)
 
-    def _draw_ellipse(self) -> None:
-        """Dibuja una elipse con semi-ejes `a` y `b` centrada en (h,k).
+        # --- Centro ---
+        self._marcar_punto(h, k, self.COLOR_CENTRO, 'o', 9,
+                           label=f'Centro ({h:.4g}, {k:.4g})')
 
-        Calcula la distancia focal `c` para marcar los focos (si es posible).
+        # --- Ejes de simetría (horizontal y vertical por el centro) ---
+        x_min, x_max, y_min, y_max = _calcular_rango_dinamico(h, k, r, r)
+        self._dibujar_linea_segmento(
+            h - r, k, h + r, k,
+            self.COLOR_EJE_MAY, '--', 1.0,
+            label='Eje horizontal'
+        )
+        self._dibujar_linea_segmento(
+            h, k - r, h, k + r,
+            self.COLOR_EJE_MEN, '--', 1.0,
+            label='Eje vertical'
+        )
+
+        # --- Título ---
+        self.ax.set_title(
+            f'Circunferencia: $(x - {h:.4g})^2 + (y - {k:.4g})^2 = {r**2:.4g}$',
+            fontsize=9, pad=8
+        )
+
+        # --- Límites dinámicos ---
+        self._aplicar_limites(x_min, x_max, y_min, y_max)
+
+    # ------------------------------------------------------------------
+    # ELIPSE
+    # ------------------------------------------------------------------
+
+    def _dibujar_elipse(self) -> None:
         """
+        Elipse: (x-h)²/a² + (y-k)²/b² = 1
+        Método: patches.Ellipse con bounding-box exacta (h±a, k±b).
+        Elementos: Centro, Vértices (4), Focos (2), Eje mayor, Eje menor.
 
-        h = self.canonical_data.get('h', 0)
-        k = self.canonical_data.get('k', 0)
-        a = abs(self.canonical_data.get('a', 5))
-        b = abs(self.canonical_data.get('b', 3))
+        a = semieje en X,  b = semieje en Y  (según como venga de canonical_data)
+        Si a > b → eje mayor horizontal;  si b > a → eje mayor vertical.
+        """
+        cd = self.canonical_data
+        h  = float(cd.get('h', 0))
+        k  = float(cd.get('k', 0))
+        a  = _abs(float(cd.get('a', 5)))
+        b  = _abs(float(cd.get('b', 3)))
 
-        ellipse = patches.Ellipse((h, k), width=2*a, height=2*b, edgecolor='#ff7f0e', fill=False, linewidth=2.5)
-        self.ax.add_patch(ellipse)
-        self.ax.plot(h, k, 'ro', label=f'Centro ({h:.2f}, {k:.2f})')
+        if a == 0:
+            a = 1.0
+        if b == 0:
+            b = 1.0
 
-        # Calcular c = sqrt(|a^2 - b^2|) para ubicar focos sobre el eje mayor
-        if a > b:
-            c = math.sqrt(max(0, a*a - b*b))
+        # Determinar orientación: cuál semieje es mayor
+        # a_sq = a², b_sq = b² vienen de canonical_data; si existen, úsalos
+        a_sq = cd.get('a_squared', a * a)
+        b_sq = cd.get('b_squared', b * b)
+
+        # Normalizar: a siempre = semieje horizontal, b = semieje vertical
+        # (patches.Ellipse usa width=2a_x, height=2b_y)
+        a_x = _sqrt(float(a_sq)) if float(a_sq) > 0 else a
+        b_y = _sqrt(float(b_sq)) if float(b_sq) > 0 else b
+
+        # --- Curva (Bounding Box exacta) ---
+        elipse = patches.Ellipse(
+            (h, k),
+            width=2 * a_x,
+            height=2 * b_y,
+            fill=False,
+            edgecolor=self.COLOR_CURVA,
+            linewidth=2.5,
+            zorder=4,
+            label=f'Elipse'
+        )
+        self.ax.add_patch(elipse)
+
+        # --- Centro ---
+        self._marcar_punto(h, k, self.COLOR_CENTRO, 'o', 9,
+                           label=f'Centro ({h:.4g}, {k:.4g})')
+
+        # --- Vértices (extremos del semieje mayor y menor) ---
+        self._marcar_punto(h + a_x, k, self.COLOR_VERTICES, 's', 7,
+                           label=f'Vértice ({h+a_x:.4g}, {k:.4g})')
+        self._marcar_punto(h - a_x, k, self.COLOR_VERTICES, 's', 7,
+                           label=f'Vértice ({h-a_x:.4g}, {k:.4g})')
+        self._marcar_punto(h, k + b_y, self.COLOR_VERTICES, 's', 7,
+                           label=f'Vértice ({h:.4g}, {k+b_y:.4g})')
+        self._marcar_punto(h, k - b_y, self.COLOR_VERTICES, 's', 7,
+                           label=f'Vértice ({h:.4g}, {k-b_y:.4g})')
+
+        # --- Focos ---
+        # c² = |a_x² - b_y²|; focos en el eje mayor
+        if a_x >= b_y:
+            # eje mayor horizontal
+            c = _sqrt(a_x * a_x - b_y * b_y)
+            self._marcar_punto(h + c, k, self.COLOR_FOCOS, '^', 8,
+                               label=f'Foco ({h+c:.4g}, {k:.4g})')
+            self._marcar_punto(h - c, k, self.COLOR_FOCOS, '^', 8,
+                               label=f'Foco ({h-c:.4g}, {k:.4g})')
         else:
-            c = math.sqrt(max(0, b*b - a*a))
-        self.ax.plot([h + c, h - c], [k, k], 'go', label='Focos')
-        self.ax.set_title('Elipse')
-        self.ax.legend()
+            # eje mayor vertical
+            c = _sqrt(b_y * b_y - a_x * a_x)
+            self._marcar_punto(h, k + c, self.COLOR_FOCOS, '^', 8,
+                               label=f'Foco ({h:.4g}, {k+c:.4g})')
+            self._marcar_punto(h, k - c, self.COLOR_FOCOS, '^', 8,
+                               label=f'Foco ({h:.4g}, {k-c:.4g})')
 
-    def _draw_hyperbola(self) -> None:
-        """Dibuja una hipérbola usando parámetros canónicos.
+        # --- Ejes de simetría ---
+        # Eje mayor (horizontal si a_x >= b_y, vertical si b_y > a_x)
+        self._dibujar_linea_segmento(
+            h - a_x, k, h + a_x, k,
+            self.COLOR_EJE_MAY, '--', 1.2,
+            label='Eje mayor' if a_x >= b_y else 'Eje menor'
+        )
+        self._dibujar_linea_segmento(
+            h, k - b_y, h, k + b_y,
+            self.COLOR_EJE_MEN, '--', 1.2,
+            label='Eje menor' if a_x >= b_y else 'Eje mayor'
+        )
 
-        La implementación trata dos orientaciones:
-        - Hipérbola vertical: se parametriza en función de y
-        - Hipérbola horizontal: se parametriza en función de x
+        # --- Título ---
+        self.ax.set_title(
+            f'Elipse: $(x-{h:.4g})^2/{a_x**2:.4g} + (y-{k:.4g})^2/{b_y**2:.4g} = 1$',
+            fontsize=9, pad=8
+        )
 
-        Implementación pura en Python sin numpy.
+        # --- Límites dinámicos ---
+        radio_max = max(a_x, b_y)
+        x_min, x_max, y_min, y_max = _calcular_rango_dinamico(h, k, a_x, b_y)
+        self._aplicar_limites(x_min, x_max, y_min, y_max)
+
+    # ------------------------------------------------------------------
+    # HIPÉRBOLA
+    # ------------------------------------------------------------------
+
+    def _dibujar_hiperbola(self) -> None:
         """
+        Hipérbola: (x-h)²/a² - (y-k)²/b² = 1  [horizontal]
+                 o (y-k)²/a² - (x-h)²/b² = 1  [vertical]
 
-        h = self.canonical_data.get('h', 0)
-        k = self.canonical_data.get('k', 0)
-        a = abs(self.canonical_data.get('a', 4))
-        b = abs(self.canonical_data.get('b', 2))
+        Método: parametrización hiperbólica mediante sinh/cosh aproximados
+        con series de Taylor (sin usar math). Se usan 1000 puntos por rama.
 
-        # Si se detecta orientación vertical, parametrizamos en y
-        if self.canonical_data.get('type') == 'hipérbola_vertical' or (self.coefficients['A'] > 0 and self.coefficients['B'] < 0):
-            # Generar valores de y
-            y_values = self._linspace(-15, 15, 1200)
-            
-            # Calcular x para cada y: (y-k)^2/a^2 - 1 = (x-h)^2/b^2
-            # Despejamos: (x-h)^2 = b^2 * ((y-k)^2/a^2 - 1)
-            x_plus = []
-            x_minus = []
-            
-            for y in y_values:
-                inner = (y - k)**2 / (a**2) - 1
-                if inner >= 0:
-                    sqrt_val = math.sqrt(inner * b**2)
-                    x_plus.append(h + sqrt_val)
-                    x_minus.append(h - sqrt_val)
-                else:
-                    # Valor inválido (NaN), no se ploteará
-                    x_plus.append(float('nan'))
-                    x_minus.append(float('nan'))
-            
-            # Filtrar puntos NaN para graficación
-            y_plot_plus = [y for y, x in zip(y_values, x_plus) if not math.isnan(x)]
-            x_plot_plus = [x for x in x_plus if not math.isnan(x)]
-            
-            y_plot_minus = [y for y, x in zip(y_values, x_minus) if not math.isnan(x)]
-            x_plot_minus = [x for x in x_minus if not math.isnan(x)]
-            
-            if x_plot_plus:
-                self.ax.plot(x_plot_plus, y_plot_plus, color='#2ca02c', linewidth=2)
-            if x_plot_minus:
-                self.ax.plot(x_plot_minus, y_plot_minus, color='#2ca02c', linewidth=2)
+        Elementos: Centro, Vértices (2), Focos (2), Ejes transverso y conjugado,
+                   Asíntotas (2).
+        """
+        cd = self.canonical_data
+        h  = float(cd.get('h', 0))
+        k  = float(cd.get('k', 0))
+        a  = _abs(float(cd.get('a', 4)))
+        b  = _abs(float(cd.get('b', 3)))
+
+        if a == 0:
+            a = 1.0
+        if b == 0:
+            b = 1.0
+
+        # Detectar orientación
+        # canonical_data['type'] puede ser 'hipérbola_vertical' o 'hipérbola'
+        # También se infiere de los coeficientes: A > 0, B < 0 → horizontal
+        tipo_cd  = str(cd.get('type', ''))
+        coef_A   = float(self.coefficients.get('A', 1))
+        coef_B   = float(self.coefficients.get('B', -1))
+
+        vertical = (
+            'vertical' in tipo_cd or
+            (coef_A < 0 and coef_B > 0)
+        )
+
+        # a_sq, b_sq desde canonical_data si están disponibles
+        a_sq = cd.get('a_squared', a * a)
+        b_sq = cd.get('b_squared', b * b)
+
+        # Para hipérbola, a_squared puede ser positivo y b_squared negativo
+        # (convención del módulo 6: a² = rhs/A, b² = rhs/B)
+        # Normalizamos a siempre positivos
+        a_real = _sqrt(_abs(float(a_sq))) if a_sq != 0 else a
+        b_real = _sqrt(_abs(float(b_sq))) if b_sq != 0 else b
+
+        if a_real == 0:
+            a_real = a
+        if b_real == 0:
+            b_real = b
+
+        # --- Generar puntos de las dos ramas usando parametrización ---
+        # Hipérbola horizontal: x = h + a·cosh(t), y = k ± b·sinh(t)
+        # Aproximamos cosh y sinh con la identidad:
+        #   Para t en [t_min, t_max] discretizado, cosh(t) = (e^t + e^(-t))/2
+        #   Usamos e^t nativo de Python
+        n_puntos = 800
+        t_max    = 3.0   # cosh(3) ≈ 10.07, suficiente para visualización
+
+        t_vals = _linspace(-t_max, t_max, n_puntos)
+
+        def _cosh(t):
+            et = 2.718281828459045 ** t
+            return (et + 1.0 / et) / 2.0
+
+        def _sinh(t):
+            et = 2.718281828459045 ** t
+            return (et - 1.0 / et) / 2.0
+
+        if not vertical:
+            # Rama derecha: x = h + a·cosh(t), y = k + b·sinh(t)
+            x_der = [h + a_real * _cosh(t) for t in t_vals]
+            y_der = [k + b_real * _sinh(t) for t in t_vals]
+            # Rama izquierda: x = h - a·cosh(t)
+            x_izq = [h - a_real * _cosh(t) for t in t_vals]
+            y_izq = [k + b_real * _sinh(t) for t in t_vals]
         else:
-            # Orientación horizontal: parametrizamos en x
-            x_values = self._linspace(-15, 15, 1200)
-            
-            # Calcular y para cada x: (x-h)^2/a^2 - 1 = (y-k)^2/b^2
-            # Despejamos: (y-k)^2 = b^2 * ((x-h)^2/a^2 - 1)
-            y_plus = []
-            y_minus = []
-            
-            for x in x_values:
-                inner = (x - h)**2 / (a**2) - 1
-                if inner >= 0:
-                    sqrt_val = math.sqrt(inner * b**2)
-                    y_plus.append(k + sqrt_val)
-                    y_minus.append(k - sqrt_val)
-                else:
-                    y_plus.append(float('nan'))
-                    y_minus.append(float('nan'))
-            
-            # Filtrar puntos NaN para graficación
-            x_plot_plus = [x for x, y in zip(x_values, y_plus) if not math.isnan(y)]
-            y_plot_plus = [y for y in y_plus if not math.isnan(y)]
-            
-            x_plot_minus = [x for x, y in zip(x_values, y_minus) if not math.isnan(y)]
-            y_plot_minus = [y for y in y_minus if not math.isnan(y)]
-            
-            if x_plot_plus:
-                self.ax.plot(x_plot_plus, y_plot_plus, color='#2ca02c', linewidth=2)
-            if x_plot_minus:
-                self.ax.plot(x_plot_minus, y_plot_minus, color='#2ca02c', linewidth=2)
+            # Hipérbola vertical: ramas arriba/abajo
+            # y = k + a·cosh(t), x = h + b·sinh(t)  [rama superior]
+            # y = k - a·cosh(t), x = h + b·sinh(t)  [rama inferior]
+            x_der = [h + b_real * _sinh(t) for t in t_vals]
+            y_der = [k + a_real * _cosh(t) for t in t_vals]
+            x_izq = [h + b_real * _sinh(t) for t in t_vals]
+            y_izq = [k - a_real * _cosh(t) for t in t_vals]
 
-        # Marcar centro y leyenda
-        self.ax.plot(h, k, 'ro', label=f'Centro ({h:.2f}, {k:.2f})')
-        self.ax.set_title('Hipérbola')
-        self.ax.legend()
+        # --- Dibujar las dos ramas ---
+        label_hiper = ('Hipérbola (rama 1)', 'Hipérbola (rama 2)')
+        self.ax.plot(x_der, y_der, color=self.COLOR_CURVA, linewidth=2.5,
+                     label=label_hiper[0], zorder=4)
+        self.ax.plot(x_izq, y_izq, color=self.COLOR_CURVA, linewidth=2.5,
+                     label=label_hiper[1], zorder=4)
 
-    def _draw_parabola(self) -> None:
-        """Dibuja una parábola usando el parámetro focal `p`.
+        # --- Centro ---
+        self._marcar_punto(h, k, self.COLOR_CENTRO, 'o', 9,
+                           label=f'Centro ({h:.4g}, {k:.4g})')
 
-        Determina orientación en base a los coeficientes: si A==0 se asume
-        parábola horizontal, en caso contrario vertical. Traza la directriz
-        como una línea punteada para referencia.
-        
-        Implementación pura en Python sin numpy.
+        # --- Vértices ---
+        if not vertical:
+            self._marcar_punto(h + a_real, k, self.COLOR_VERTICES, 's', 7,
+                               label=f'Vértice ({h+a_real:.4g}, {k:.4g})')
+            self._marcar_punto(h - a_real, k, self.COLOR_VERTICES, 's', 7,
+                               label=f'Vértice ({h-a_real:.4g}, {k:.4g})')
+        else:
+            self._marcar_punto(h, k + a_real, self.COLOR_VERTICES, 's', 7,
+                               label=f'Vértice ({h:.4g}, {k+a_real:.4g})')
+            self._marcar_punto(h, k - a_real, self.COLOR_VERTICES, 's', 7,
+                               label=f'Vértice ({h:.4g}, {k-a_real:.4g})')
+
+        # --- Focos: c = sqrt(a² + b²) ---
+        c = _sqrt(a_real * a_real + b_real * b_real)
+        if not vertical:
+            self._marcar_punto(h + c, k, self.COLOR_FOCOS, '^', 8,
+                               label=f'Foco ({h+c:.4g}, {k:.4g})')
+            self._marcar_punto(h - c, k, self.COLOR_FOCOS, '^', 8,
+                               label=f'Foco ({h-c:.4g}, {k:.4g})')
+        else:
+            self._marcar_punto(h, k + c, self.COLOR_FOCOS, '^', 8,
+                               label=f'Foco ({h:.4g}, {k+c:.4g})')
+            self._marcar_punto(h, k - c, self.COLOR_FOCOS, '^', 8,
+                               label=f'Foco ({h:.4g}, {k-c:.4g})')
+
+        # --- Ejes de simetría ---
+        extension = max(a_real, b_real, c) * 1.6
+        if not vertical:
+            # Eje transverso (horizontal)
+            self._dibujar_linea_segmento(
+                h - extension, k, h + extension, k,
+                self.COLOR_EJE_MAY, '--', 1.2, 'Eje transverso (horizontal)'
+            )
+            # Eje conjugado (vertical)
+            self._dibujar_linea_segmento(
+                h, k - extension, h, k + extension,
+                self.COLOR_EJE_MEN, '--', 1.2, 'Eje conjugado (vertical)'
+            )
+        else:
+            self._dibujar_linea_segmento(
+                h, k - extension, h, k + extension,
+                self.COLOR_EJE_MAY, '--', 1.2, 'Eje transverso (vertical)'
+            )
+            self._dibujar_linea_segmento(
+                h - extension, k, h + extension, k,
+                self.COLOR_EJE_MEN, '--', 1.2, 'Eje conjugado (horizontal)'
+            )
+
+        # --- Asíntotas: y - k = ±(b/a)(x - h)  [horizontal]
+        #               y - k = ±(a/b)(x - h)  [vertical] ---
+        x_asint = _linspace(h - extension, h + extension, 300)
+        if not vertical:
+            pendiente = b_real / a_real
+        else:
+            pendiente = a_real / b_real
+
+        y_asint_pos = [k + pendiente * (x - h) for x in x_asint]
+        y_asint_neg = [k - pendiente * (x - h) for x in x_asint]
+
+        self.ax.plot(x_asint, y_asint_pos,
+                     color=self.COLOR_ASINTOTA, linestyle=':', linewidth=1.5,
+                     label=f'Asíntota y={k:.3g}+{pendiente:.3g}(x-{h:.3g})',
+                     zorder=2)
+        self.ax.plot(x_asint, y_asint_neg,
+                     color=self.COLOR_ASINTOTA, linestyle=':', linewidth=1.5,
+                     label=f'Asíntota y={k:.3g}-{pendiente:.3g}(x-{h:.3g})',
+                     zorder=2)
+
+        # --- Título ---
+        if not vertical:
+            titulo = (f'Hipérbola: $(x-{h:.4g})^2/{a_real**2:.4g}'
+                      f' - (y-{k:.4g})^2/{b_real**2:.4g} = 1$')
+        else:
+            titulo = (f'Hipérbola: $(y-{k:.4g})^2/{a_real**2:.4g}'
+                      f' - (x-{h:.4g})^2/{b_real**2:.4g} = 1$')
+        self.ax.set_title(titulo, fontsize=9, pad=8)
+
+        # --- Límites dinámicos ---
+        radio_x = max(a_real, c) if not vertical else max(b_real, c)
+        radio_y = max(b_real, c) if not vertical else max(a_real, c)
+        x_min, x_max, y_min, y_max = _calcular_rango_dinamico(
+            h, k, radio_x, radio_y, margen_rel=0.40
+        )
+        self._aplicar_limites(x_min, x_max, y_min, y_max)
+
+    # ------------------------------------------------------------------
+    # PARÁBOLA
+    # ------------------------------------------------------------------
+
+    def _dibujar_parabola(self) -> None:
         """
+        Parábola vertical:   (x - h)² = 4p(y - k)
+        Parábola horizontal: (y - k)² = 4p(x - h)
 
-        h = self.canonical_data.get('h', 0)
-        k = self.canonical_data.get('k', 0)
-        orientation = 'vertical'
-        if self.coefficients['A'] == 0:
-            orientation = 'horizontal'
+        Elementos: Vértice, Foco (h, k+p) o (h+p, k), Directriz (y=k-p o x=h-p),
+                   Eje de simetría.
 
-        p = self.canonical_data.get('p', None)
+        La curva se traza despejando la variable secundaria de la ecuación
+        canónica (esto es exacto y sin raíces negativas):
+            Vertical:   y = k + (x - h)² / (4p)   → siempre definida
+            Horizontal: x = h + (y - k)² / (4p)   → siempre definida
+        """
+        cd          = self.canonical_data
+        h           = float(cd.get('h', 0))
+        k           = float(cd.get('k', 0))
+        p           = cd.get('p', None)
+        orientacion = str(cd.get('axis', ''))
+
         if p is None:
-            # Valor por defecto razonable para visualización
-            p = 1
+            p = 1.0
+        p = float(p)
 
-        if orientation == 'vertical':
-            # Parábola vertical: (x-h)^2 = 4p(y-k)
-            # Despejamos: y = k + (x-h)^2 / (4p)
-            x_values = self._linspace(h - 12, h + 12, 800)
-            y_values = [k + ((x - h)**2) / (4 * p) for x in x_values]
-            
-            self.ax.plot(x_values, y_values, color='#d62728', linewidth=2)
-            self.ax.plot(h, k, 'ro', label=f'Vértice ({h:.2f}, {k:.2f})')
-            # Directriz y = k - p
-            self.ax.axhline(k - p, color='#9467bd', linestyle='--', linewidth=1.5, label=f'Directriz y={k - p:.2f}')
+        # Detectar orientación desde coeficientes si no está en canonical_data
+        coef_A = float(self.coefficients.get('A', 0))
+        if not orientacion:
+            orientacion = 'vertical' if coef_A != 0 else 'horizontal'
+
+        # Radio de visualización adaptado a p
+        radio_vis = max(_abs(p) * 6, 8.0)
+
+        if orientacion == 'vertical':
+            # y = k + (x-h)² / (4p)
+            if _abs(p) < 1e-10:
+                self._dibujar_mensaje("Parábola degenerada (p ≈ 0)")
+                return
+
+            x_vals = _linspace(h - radio_vis, h + radio_vis, 800)
+            y_vals = [k + (x - h) ** 2 / (4.0 * p) for x in x_vals]
+
+            self.ax.plot(x_vals, y_vals,
+                         color=self.COLOR_CURVA, linewidth=2.5,
+                         label='Parábola vertical', zorder=4)
+
+            # Vértice
+            self._marcar_punto(h, k, self.COLOR_VERTICES, 'D', 9,
+                               label=f'Vértice ({h:.4g}, {k:.4g})')
+
+            # Foco: (h, k + p)
+            foco_y = k + p
+            self._marcar_punto(h, foco_y, self.COLOR_FOCOS, '^', 8,
+                               label=f'Foco ({h:.4g}, {foco_y:.4g})')
+
+            # Directriz: y = k - p
+            dir_y = k - p
+            x_dir_min = h - radio_vis * 0.9
+            x_dir_max = h + radio_vis * 0.9
+            self.ax.plot(
+                [x_dir_min, x_dir_max], [dir_y, dir_y],
+                color=self.COLOR_DIRECTRIZ, linestyle='--', linewidth=1.8,
+                label=f'Directriz: y = {dir_y:.4g}', zorder=3
+            )
+
+            # Eje de simetría: x = h
+            y_eje_min = min(k - _abs(p) * 1.5, dir_y - 1)
+            y_eje_max = max(y_vals) + _abs(p)
+            self._dibujar_linea_segmento(
+                h, y_eje_min, h, y_eje_max,
+                self.COLOR_EJE_MAY, '-.', 1.2,
+                label=f'Eje de simetría: x = {h:.4g}'
+            )
+
+            # Título
+            self.ax.set_title(
+                f'Parábola: $(x-{h:.4g})^2 = {4*p:.4g}(y-{k:.4g})$',
+                fontsize=9, pad=8
+            )
+
+            # Límites dinámicos
+            y_extremo = k + radio_vis ** 2 / (4.0 * _abs(p))
+            radio_y   = _abs(y_extremo - k) * 0.55
+            x_min, x_max, y_min, y_max = _calcular_rango_dinamico(
+                h, k + radio_y * 0.3, radio_vis * 0.9, radio_y
+            )
+            # Incluir directriz en el rango
+            y_min = min(y_min, dir_y - 2)
+            self._aplicar_limites(x_min, x_max, y_min, y_max)
+
         else:
-            # Parábola horizontal: (y-k)^2 = 4p(x-h)
-            # Despejamos: x = h + (y-k)^2 / (4p)
-            y_values = self._linspace(k - 12, k + 12, 800)
-            x_values = [h + ((y - k)**2) / (4 * p) for y in y_values]
-            
-            self.ax.plot(x_values, y_values, color='#d62728', linewidth=2)
-            self.ax.plot(h, k, 'ro', label=f'Vértice ({h:.2f}, {k:.2f})')
-            # Directriz x = h - p
-            self.ax.axvline(h - p, color='#9467bd', linestyle='--', linewidth=1.5, label=f'Directriz x={h - p:.2f}')
+            # Parábola horizontal: x = h + (y-k)² / (4p)
+            if _abs(p) < 1e-10:
+                self._dibujar_mensaje("Parábola degenerada (p ≈ 0)")
+                return
 
-        self.ax.set_title('Parábola')
-        self.ax.legend()
+            y_vals = _linspace(k - radio_vis, k + radio_vis, 800)
+            x_vals = [h + (y - k) ** 2 / (4.0 * p) for y in y_vals]
 
-    def _draw_message(self, message: str) -> None:
-        """Muestra un mensaje centrado en la figura (por ejemplo errores)."""
+            self.ax.plot(x_vals, y_vals,
+                         color=self.COLOR_CURVA, linewidth=2.5,
+                         label='Parábola horizontal', zorder=4)
 
-        self.ax.text(0.5, 0.5, message, ha='center', va='center', fontsize=12, color='red')
+            # Vértice
+            self._marcar_punto(h, k, self.COLOR_VERTICES, 'D', 9,
+                               label=f'Vértice ({h:.4g}, {k:.4g})')
 
-    def close(self) -> None:
-        """Cierra y limpia la figura/canvas asociados a este renderer."""
+            # Foco: (h + p, k)
+            foco_x = h + p
+            self._marcar_punto(foco_x, k, self.COLOR_FOCOS, '^', 8,
+                               label=f'Foco ({foco_x:.4g}, {k:.4g})')
 
-        if self.canvas:
-            self.canvas.get_tk_widget().destroy()
-            self.canvas = None
-        self.figure.clf()
+            # Directriz: x = h - p
+            dir_x = h - p
+            y_dir_min = k - radio_vis * 0.9
+            y_dir_max = k + radio_vis * 0.9
+            self.ax.plot(
+                [dir_x, dir_x], [y_dir_min, y_dir_max],
+                color=self.COLOR_DIRECTRIZ, linestyle='--', linewidth=1.8,
+                label=f'Directriz: x = {dir_x:.4g}', zorder=3
+            )
+
+            # Eje de simetría: y = k
+            x_eje_min = min(x_vals) - _abs(p)
+            x_eje_max = max(x_vals) + _abs(p)
+            self._dibujar_linea_segmento(
+                x_eje_min, k, x_eje_max, k,
+                self.COLOR_EJE_MAY, '-.', 1.2,
+                label=f'Eje de simetría: y = {k:.4g}'
+            )
+
+            # Título
+            self.ax.set_title(
+                f'Parábola: $(y-{k:.4g})^2 = {4*p:.4g}(x-{h:.4g})$',
+                fontsize=9, pad=8
+            )
+
+            # Límites dinámicos
+            x_extremo = h + radio_vis ** 2 / (4.0 * _abs(p))
+            radio_x   = _abs(x_extremo - h) * 0.55
+            x_min, x_max, y_min, y_max = _calcular_rango_dinamico(
+                h + radio_x * 0.3, k, radio_x, radio_vis * 0.9
+            )
+            # Incluir directriz en el rango
+            x_min = min(x_min, dir_x - 2)
+            self._aplicar_limites(x_min, x_max, y_min, y_max)

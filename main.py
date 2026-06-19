@@ -8,6 +8,17 @@ Al ejecutar este archivo directamente, se abre la interfaz gráfica
 
 import sys
 import tkinter as tk
+
+# Configuración de DPI para evitar borrosidad en Windows
+if sys.platform.startswith('win'):
+    try:
+        import ctypes
+        ctypes.windll.shcore.SetProcessDpiAwareness(1)
+    except Exception:
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except Exception:
+            pass
 from src.rut_validator import validar_rut, mostrar_procedimiento_validacion
 from src.coefficient_engine import calcular_coeficientes, mostrar_procedimiento_coeficientes
 from src.conic_rules_adjuster import obtener_reglas_ajuste_conicas
@@ -227,7 +238,8 @@ def run_cli() -> None:
 
 
 def run_gui() -> None:
-    root = tk.Tk()
+    import customtkinter as ctk
+    root = ctk.CTk()
     app = InterfazAnalisisConicas(root)
     root.mainloop()
 
