@@ -498,14 +498,35 @@ class InterfazAnalisisConicas:
                 ('radio', '⭕', 'Radio (r)', 'Ej: r = ...')
             ]
         else:
-            CAMPOS = [
-                ('centro', '📍', 'Centro (h, k)' if conic_type != 'parábola' else 'Vértice (h, k)', 'Ej: (h, k)'),
-                ('vertices', '◆', 'Vértices', 'Ej: (x₁, y₁)  y  (x₂, y₂)'),
-                ('focos', '✦', 'Focos', 'Ej: F₁(x₁, y₁)  y  F₂(x₂, y₂)'),
-                ('eje_mayor', '↔', 'Long. Eje Mayor / Transverso', 'Ej: 2a =  ...'),
-                ('eje_menor', '↕', 'Long. Eje Menor / Conjugado', 'Ej: 2b =  ...'),
-                ('dir_asin', '—', 'Directriz / Asíntotas' if conic_type == 'hipérbola' else ('Ecuación de la Directriz' if conic_type == 'parábola' else 'Directriz / Asíntotas (N/A)'), 'Ej: y = k ± (b/a)(x − h)')
-            ]
+            # Parabola tiene campos diferentes: Vértice, Foco, Eje de simetría, Directriz
+            if conic_type == 'parábola':
+                CAMPOS = [
+                    ('vertice', '📍', 'Vértice (h, k)', 'Ej: (h, k)'),
+                    ('foco', '✦', 'Foco', 'Ej: (x, y)'),
+                    ('eje_simetria', '⇄', 'Eje de simetría', 'Ej: x = h  o  y = k'),
+                    ('dir_asin', '—', 'Directriz', 'Ej: y = k - p')
+                ]
+            else:
+                # Para la elipse añadimos un segundo campo de vértices (co-vértices)
+                if conic_type == 'elipse':
+                    CAMPOS = [
+                        ('centro', '📍', 'Centro (h, k)', 'Ej: (h, k)'),
+                        ('vertices', '◆', 'Vértices (mayores)', 'Ej: (x₁, y₁)  y  (x₂, y₂)'),
+                        ('covertices', '◇', 'Co-vértices (menores)', 'Ej: (x₃, y₃)  y  (x₄, y₄)'),
+                        ('focos', '✦', 'Focos', 'Ej: F₁(x₁, y₁)  y  F₂(x₂, y₂)'),
+                        ('eje_mayor', '↔', 'Long. Eje Mayor / Transverso', 'Ej: 2a =  ...'),
+                        ('eje_menor', '↕', 'Long. Eje Menor / Conjugado', 'Ej: 2b =  ...'),
+                        ('dir_asin', '—', 'Directriz / Asíntotas (N/A)', 'Ej: y = k ± (b/a)(x − h)')
+                    ]
+                else:
+                    CAMPOS = [
+                        ('centro', '📍', 'Centro (h, k)' if conic_type != 'parábola' else 'Vértice (h, k)', 'Ej: (h, k)'),
+                        ('vertices', '◆', 'Vértices', 'Ej: (x₁, y₁)  y  (x₂, y₂)'),
+                        ('focos', '✦', 'Focos', 'Ej: F₁(x₁, y₁)  y  F₂(x₂, y₂)'),
+                        ('eje_mayor', '↔', 'Long. Eje Mayor / Transverso', 'Ej: 2a =  ...'),
+                        ('eje_menor', '↕', 'Long. Eje Menor / Conjugado', 'Ej: 2b =  ...'),
+                        ('dir_asin', '—', 'Directriz / Asíntotas' if conic_type == 'hipérbola' else ('Ecuación de la Directriz' if conic_type == 'parábola' else 'Directriz / Asíntotas (N/A)'), 'Ej: y = k ± (b/a)(x − h)')
+                    ]
 
         for key, icono, etiqueta, placeholder in CAMPOS:
             campo_card = ctk.CTkFrame(
@@ -723,15 +744,18 @@ class InterfazAnalisisConicas:
 
             if eje_horizontal:
                 vertices = [self._formatear_punto(h + a_mayor, k), self._formatear_punto(h - a_mayor, k)]
+                covertices = [self._formatear_punto(h, k + b_menor), self._formatear_punto(h, k - b_menor)]
                 focos = [self._formatear_punto(h + c, k), self._formatear_punto(h - c, k)]
             else:
                 vertices = [self._formatear_punto(h, k + a_mayor), self._formatear_punto(h, k - a_mayor)]
+                covertices = [self._formatear_punto(h + b_menor, k), self._formatear_punto(h - b_menor, k)]
                 focos = [self._formatear_punto(h, k + c), self._formatear_punto(h, k - c)]
 
             centro = self._formatear_punto(h, k)
             return {
                 'centro': {'label': 'Centro', 'expected': centro, 'kind': 'point', 'tokens': [centro]},
-                'vertices': {'label': 'Vértices', 'expected': ' / '.join(vertices), 'kind': 'contains_all', 'tokens': vertices},
+                'vertices': {'label': 'Vértices (mayores)', 'expected': ' / '.join(vertices), 'kind': 'contains_all', 'tokens': vertices},
+                'covertices': {'label': 'Co-vértices', 'expected': ' / '.join(covertices), 'kind': 'contains_all', 'tokens': covertices},
                 'focos': {'label': 'Focos', 'expected': ' / '.join(focos), 'kind': 'contains_all', 'tokens': focos},
                 'eje_mayor': {'label': 'Long. Eje Mayor / Transverso', 'expected': self._formatear_numero(2 * a_mayor), 'kind': 'number', 'value': 2 * a_mayor},
                 'eje_menor': {'label': 'Long. Eje Menor / Conjugado', 'expected': self._formatear_numero(2 * b_menor), 'kind': 'number', 'value': 2 * b_menor},
@@ -741,7 +765,7 @@ class InterfazAnalisisConicas:
         if conic_type == 'hipérbola':
             a = abs(float(canonical.get('a', 0) or 0))
             b = abs(float(canonical.get('b', 0) or 0))
-            vertical = float(result.get('A', 0) or 0) < 0 < float(result.get('B', 0) or 0)
+            vertical = bool(canonical.get('is_vertical')) or ('vertical' in str(canonical.get('type', ''))) or (float(result.get('A', 0) or 0) < 0 < float(result.get('B', 0) or 0))
             c = (a * a + b * b) ** 0.5
             if vertical:
                 vertices = [self._formatear_punto(h, k + a), self._formatear_punto(h, k - a)]
@@ -773,12 +797,11 @@ class InterfazAnalisisConicas:
                 directriz = f'x = {self._formatear_numero(h - p)}'
 
             vertex = self._formatear_punto(h, k)
+            eje_simetria = f'x = {self._formatear_numero(h)}' if axis == 'vertical' else f'y = {self._formatear_numero(k)}'
             return {
-                'centro': {'label': 'Vértice', 'expected': vertex, 'kind': 'point', 'tokens': [vertex]},
-                'vertices': {'label': 'Vértice', 'expected': vertex, 'kind': 'point', 'tokens': [vertex]},
-                'focos': {'label': 'Foco', 'expected': foco, 'kind': 'point', 'tokens': [foco]},
-                'eje_mayor': {'label': 'Long. Eje Mayor / Transverso', 'expected': 'No aplica', 'kind': 'na'},
-                'eje_menor': {'label': 'Long. Eje Menor / Conjugado', 'expected': 'No aplica', 'kind': 'na'},
+                'vertice': {'label': 'Vértice', 'expected': vertex, 'kind': 'point', 'tokens': [vertex]},
+                'foco': {'label': 'Foco', 'expected': foco, 'kind': 'point', 'tokens': [foco]},
+                'eje_simetria': {'label': 'Eje de simetría', 'expected': eje_simetria, 'kind': 'text', 'tokens': [eje_simetria]},
                 'dir_asin': {'label': 'Directriz', 'expected': directriz, 'kind': 'text', 'tokens': [directriz]},
             }
 
@@ -793,17 +816,42 @@ class InterfazAnalisisConicas:
             return self._es_no_aplica(respuesta_norm)
 
         if tipo == 'number':
-            esperado = self._formatear_numero(float(spec.get('value', 0)))
+            # Manejar infinitos expressados como texto (p.ej. "mas infinito", "menos infinito")
+            val = spec.get('value', None)
+            expected_label = str(spec.get('expected', '')).lower()
+            if val is None and 'inf' in expected_label or 'infinito' in expected_label or '∞' in expected_label:
+                # Aceptar variantes sin símbolo: masinfinito, menosinfinito, infinitopositivo, infinitonegativo
+                pos_tokens = ('+infinito', 'masinfinito', 'infinitopositivo', 'positivoinfinito', 'infinito')
+                neg_tokens = ('-infinito', 'menosinfinito', 'infinitonegativo', 'negativoinfinito')
+                # Si aparece '-' en la etiqueta esperamos negativo
+                if '-' in expected_label or 'menos' in expected_label or 'negativ' in expected_label:
+                    return any(tok in respuesta_norm for tok in neg_tokens)
+                return any(tok in respuesta_norm for tok in pos_tokens)
+            try:
+                esperado = self._formatear_numero(float(val))
+            except Exception:
+                esperado = str(spec.get('expected', ''))
             return esperado in respuesta_norm
 
-        tokens = [self._normalizar_texto(token) for token in spec.get('tokens', [])]
-        if not tokens:
+        raw_tokens = [t for t in spec.get('tokens', []) if t]
+        if not raw_tokens:
             return False
 
-        if tipo == 'contains_all':
-            return all(token in respuesta_norm for token in tokens)
+        norm_tokens = [self._normalizar_texto(t) for t in raw_tokens]
+        subtokens = set()
+        for t in raw_tokens:
+            parts = ''.join(ch if ch.isalnum() else ' ' for ch in t).split()
+            for p in parts:
+                subtokens.add(self._normalizar_texto(p))
+        for t in norm_tokens:
+            subtokens.add(t)
 
-        return any(token in respuesta_norm for token in tokens)
+        if tipo == 'contains_all':
+            # require that at least one of the token words appears
+            return any(st in respuesta_norm for st in subtokens if st)
+
+        # default: accept if any token/subtoken appears
+        return any(st in respuesta_norm for st in subtokens if st)
 
     def _normalizar_texto(self, texto: str) -> str:
         """Normaliza texto manual para una comparación tolerante."""

@@ -144,63 +144,95 @@ class AnalizadorFuncionesPorPartes:
         return table
 
     def _generate_jump(self) -> Dict[str, Any]:
-        """Genera función con discontinuidad de salto."""
+        """Genera función con continuidad o salto finito según los parámetros."""
         # Función por partes con dos ramas lineales
-        # f(x) = { d1*x + d2  si x <= d3
-        #        { d4*x - d5  si x >  d3
-        d1, d2, d3, d4, d5 = self.digits[0], self.digits[1], self.digits[2], self.digits[3], self.digits[4]
-        
-        self.discontinuity_point = d3
-        
-        # Calcular límites laterales
-        left_limit = d1 * d3 + d2
-        right_limit = d4 * d3 - d5
+        # f(x) = { x + d2   si x < d3
+        #        { x + d4   si x ≥ d3
+        d2, d3, d4 = self.digits[1], self.digits[2], self.digits[3]
+        a = d3
+        self.discontinuity_point = a
+
+        # Calcular límites laterales y valor en el punto
+        left_limit = a + d2
+        right_limit = a + d4
+        f_at_point = a + d4
+        is_continuous = left_limit == right_limit and f_at_point == right_limit
+        salto = abs(right_limit - left_limit)
+
+        if is_continuous:
+            case_name = 'Función Continua'
+            conclusion = (
+                f"  No hay salto en x = {a}: los límites laterales coinciden y "
+                f"f({a}) = {f_at_point}.\n"
+                f"  La función es CONTINUA en x = {a}."
+            )
+        else:
+            case_name = 'Discontinuidad de Salto'
+            conclusion = (
+                f"  Existe una discontinuidad de salto en x = {a}.\n"
+                f"  La función salta de {left_limit} a {right_limit}.\n"
+                f"  f({a}) = {f_at_point}  (definida por tramo derecho)\n"
+            )
 
         procedure = (
-            f"CASO 2: DISCONTINUIDAD DE SALTO\n"
+            f"CASO 2: {case_name.upper()}\n"
             f"{'='*70}\n\n"
             f"Definición de función por partes:\n"
-            f"       ⎧ {d1}x + {d2}   si x ≤ {d3}\n"
+            f"       ⎧ x + {d2}   si x < {a}\n"
             f"f(x) = ⎨\n"
-            f"       ⎩ {d4}x - {d5}   si x > {d3}\n\n"
-            f"Paso 1: Evaluación en rama izquierda (x ≤ {d3})\n"
-            f"  f({d3}⁻) = {d1}({d3}) + {d2} = {d1*d3} + {d2} = {left_limit}\n\n"
-            f"Paso 2: Evaluación en rama derecha (x > {d3})\n"
-            f"  f({d3}⁺) = {d4}({d3}) - {d5} = {d4*d3} - {d5} = {right_limit}\n\n"
+            f"       ⎩ x + {d4}   si x ≥ {a}\n\n"
+            f"Paso 1: Evaluación en rama izquierda (x < {a})\n"
+            f"  lim(x→{a}⁻) f(x) = {a} + {d2} = {left_limit}\n\n"
+            f"Paso 2: Evaluación en rama derecha (x ≥ {a})\n"
+            f"  lim(x→{a}⁺) f(x) = {a} + {d4} = {right_limit}\n\n"
             f"Paso 3: Cálculo del salto\n"
-            f"  Magnitud del salto: |{right_limit} - {left_limit}| = {abs(right_limit - left_limit)}\n\n"
+            f"  Magnitud del salto: |{right_limit} - {left_limit}| = {salto}\n\n"
             f"Paso 4: Punto crítico\n"
-            f"  Punto de discontinuidad: x = {d3}\n"
-            f"  Tipo: Discontinuidad de salto (salto finito)\n\n"
-            f"Paso 5: Análisis de límites\n"
-            f"  lim(x→{d3}⁻) f(x) = {left_limit}  (rama izquierda)\n"
-            f"  lim(x→{d3}⁺) f(x) = {right_limit}  (rama derecha)\n"
-            f"  Los límites laterales NO son iguales\n\n"
-            f"Paso 6: Conclusión\n"
-            f"  Existe una discontinuidad de salto en x = {d3}\n"
-            f"  La función salta de {left_limit} a {right_limit}\n"
-            f"  f({d3}) = {left_limit}  (definida por rama izquierda)\n"
+            f"  Punto de análisis: x = {a}\n"
+            f"{conclusion}\n"
+            f"Paso 5: Análisis de continuidad\n"
+            f"  f({a}) = {f_at_point}\n"
         )
 
-        analysis = self._analyze_jump(d3, left_limit, right_limit)
+        analysis = self._analyze_jump(a, left_limit, right_limit, f_at_point)
 
         return {
             'case': 1,
-            'case_name': 'Discontinuidad de Salto',
-            'discontinuity_point': d3,
+            'case_name': case_name,
+            'discontinuity_point': a,
             'function_definition': (
-                f"f(x) = {{{d1}x + {d2} si x ≤ {d3}; {d4}x - {d5} si x > {d3}}}"
+                f"f(x) = {{x + {d2} si x < {a}; x + {d4} si x ≥ {a}}}"
             ),
-            'left_branch': f"{d1}x + {d2}",
-            'right_branch': f"{d4}x - {d5}",
-            'point_of_discontinuity': f"x = {d3}",
+            'left_branch': f"x + {d2}",
+            'right_branch': f"x + {d4}",
+            'point_of_discontinuity': f"x = {a}",
             'procedure': procedure,
             'analysis': analysis,
-            'table': self._generate_values_table_jump(d3, d1, d2, d4, d5)
+            'table': self._generate_values_table_jump(a, d2, d4)
         }
 
-    def _analyze_jump(self, point: int, left_lim: int, right_lim: int) -> Dict[str, Any]:
+    def _analyze_jump(self, point: int, left_lim: int, right_lim: int, value_at_point: int) -> Dict[str, Any]:
         """Análisis detallado para discontinuidad de salto."""
+        is_continuous = left_lim == right_lim and value_at_point == right_lim
+        if is_continuous:
+            return {
+                'discontinuity_type': 'Continua',
+                'discontinuity_definition': (
+                    f"La función por tramos es continua en x = {point} porque "
+                    f"los límites laterales coinciden y f({point}) = {value_at_point}."
+                ),
+                'left_limit': left_lim,
+                'right_limit': right_lim,
+                'limits_equal': True,
+                'value_at_discontinuity': value_at_point,
+                'is_continuous': True,
+                'reason': (
+                    f"lim(x→{point}⁻) f(x) = {left_lim} = {right_lim} = lim(x→{point}⁺) f(x) "
+                    f"y f({point}) = {value_at_point}."
+                ),
+                'removal_method': 'No aplica: la función ya es continua.'
+            }
+
         return {
             'discontinuity_type': 'Salto (Finito)',
             'discontinuity_definition': (
@@ -210,17 +242,17 @@ class AnalizadorFuncionesPorPartes:
             'left_limit': left_lim,
             'right_limit': right_lim,
             'limits_equal': False,
-            'value_at_discontinuity': left_lim,
+            'value_at_discontinuity': value_at_point,
             'is_continuous': False,
             'jump_magnitude': abs(right_lim - left_lim),
             'reason': (
                 f"lim(x→{point}⁻) f(x) = {left_lim} ≠ {right_lim} = lim(x→{point}⁺) f(x)\n"
-                f"Existe un salto de magnitud {abs(right_lim - left_lim)} en x = {point}"
+                f"Existe un salto de magnitud {abs(right_lim - left_lim)} en x = {point}."
             ),
             'removal_method': "Esta discontinuidad NO puede removerse (es no removible)."
         }
 
-    def _generate_values_table_jump(self, point: int, d1: int, d2: int, d4: int, d5: int) -> str:
+    def _generate_values_table_jump(self, point: int, d2: int, d4: int) -> str:
         """Genera tabla de valores para función de salto."""
         table = f"\nTABLA DE VALORES:\n"
         table += f"{'x':<8} | {'f(x)':<12} | {'Descripción':<20}\n"
@@ -228,16 +260,16 @@ class AnalizadorFuncionesPorPartes:
 
         # Valores antes del punto
         for x in range(point - 3, point):
-            fx = d1 * x + d2
+            fx = x + d2
             table += f"{x:<8} | {fx:<12} | Rama izquierda\n"
 
         # El punto de discontinuidad
-        fx_at_point = d1 * point + d2
-        table += f"{point:<8} | {fx_at_point:<12} | Definida (rama izq.)\n"
+        fx_at_point = point + d4
+        table += f"{point:<8} | {fx_at_point:<12} | Definida (rama derecha)\n"
 
         # Valores después del punto
         for x in range(point + 1, point + 4):
-            fx = d4 * x - d5
+            fx = x + d4
             table += f"{x:<8} | {fx:<12} | Rama derecha\n"
 
         return table
@@ -323,7 +355,12 @@ class AnalizadorFuncionesPorPartes:
         for x in range(a - 3, a):
             if x - a != 0:
                 fx = x / (x - a)
-                table += f"{x:<8} | {fx:<15.4f} | Acerca a -∞\n"
+                # Formatear valores extremadamente grandes como palabras 'mas infinito' / 'menos infinito'
+                if abs(fx) > 1e8:
+                    fx_display = 'menos infinito' if fx < 0 else 'mas infinito'
+                else:
+                    fx_display = f"{fx:.4f}"
+                table += f"{x:<8} | {fx_display:<15} | Acerca a menos infinito\n"
 
         # El punto de discontinuidad
         table += f"{a:<8} | {'INDEFINIDA':<15} | ASÍNTOTA\n"
@@ -332,7 +369,11 @@ class AnalizadorFuncionesPorPartes:
         for x in range(a + 1, a + 4):
             if x - a != 0:
                 fx = x / (x - a)
-                table += f"{x:<8} | {fx:<15.4f} | Acerca a +∞\n"
+                if abs(fx) > 1e8:
+                    fx_display = 'menos infinito' if fx < 0 else 'mas infinito'
+                else:
+                    fx_display = f"{fx:.4f}"
+                table += f"{x:<8} | {fx_display:<15} | Acerca a mas infinito\n"
 
         return table
 

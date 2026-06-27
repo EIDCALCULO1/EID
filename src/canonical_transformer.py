@@ -14,36 +14,37 @@ justificando cada operación. Debe incluir el procedimiento inverso."
 """
 
 
-def completar_cuadrado_univar(coeff_x2, coeff_x, constant):
+def completar_cuadrado_univar(coeff_x2, coeff_x, constant, variable='x'):
     """
-    Completa el cuadrado para términos de una variable: Ax² + Bx + C
+    Completa el cuadrado para términos de una variable: Avar² + Bvar + C
     
     Retorna: (h, k, procedimiento)
-    Donde: A(x - h)² + k es la forma completa
+    Donde: A(var - h)² + k es la forma completa
     
     Parámetros:
-    - coeff_x2: coeficiente de x² (A)
-    - coeff_x: coeficiente de x (B)
+    - coeff_x2: coeficiente de la variable al cuadrado (A)
+    - coeff_x: coeficiente de la variable lineal (B)
     - constant: término constante (C)
+    - variable: nombre de la variable para la presentación ('x' o 'y')
     
     Retorna: tupla (h, k, procedimiento_str)
     """
     if coeff_x2 == 0:
-        return None, None, "No hay término de x² para completar cuadrado"
+        return None, None, f"No hay término de {variable}² para completar cuadrado"
     
     proc = "\n"
     
-    # Paso 1: Factorizar el coeficiente de x²
-    proc += f"Expresión inicial: {coeff_x2}x² + {coeff_x}x + {constant}\n\n"
+    # Paso 1: Factorizar el coeficiente del término cuadrático
+    proc += f"Expresión inicial: {coeff_x2}{variable}² + {coeff_x}{variable} + {constant}\n\n"
     
     # Paso 2: Factor común
     proc += f"Paso 1: Factorizar {coeff_x2} del primer y segundo término\n"
-    proc += f"  {coeff_x2}(x² + {coeff_x/coeff_x2}x) + {constant}\n\n"
+    proc += f"  {coeff_x2}({variable}² + {coeff_x/coeff_x2}{variable}) + {constant}\n\n"
     
     # Paso 3: Calcular lo que falta dentro del paréntesis
     b_over_a = coeff_x / coeff_x2
     proc += f"Paso 2: Completar el cuadrado dentro del paréntesis\n"
-    proc += f"  Coeficiente de x en el paréntesis: {b_over_a}\n"
+    proc += f"  Coeficiente de {variable} en el paréntesis: {b_over_a}\n"
     proc += f"  Mitad del coeficiente: {b_over_a / 2}\n"
     proc += f"  Cuadrado de la mitad: ({b_over_a / 2})² = {(b_over_a / 2) ** 2}\n\n"
     
@@ -52,27 +53,27 @@ def completar_cuadrado_univar(coeff_x2, coeff_x, constant):
     sq_half_b = half_b ** 2
     
     proc += f"Paso 3: Sumar y restar {sq_half_b} dentro del paréntesis\n"
-    proc += f"  {coeff_x2}(x² + {b_over_a}x + {sq_half_b} - {sq_half_b}) + {constant}\n\n"
+    proc += f"  {coeff_x2}({variable}² + {b_over_a}{variable} + {sq_half_b} - {sq_half_b}) + {constant}\n\n"
     
     # Paso 5: Reagrupar
     proc += f"Paso 4: Reagrupar en trinomio cuadrado perfecto\n"
-    proc += f"  {coeff_x2}((x + {half_b})² - {sq_half_b}) + {constant}\n\n"
+    proc += f"  {coeff_x2}(({variable} + {half_b})² - {sq_half_b}) + {constant}\n\n"
     
     # Paso 6: Distribuir
     proc += f"Paso 5: Distribuir {coeff_x2}\n"
-    proc += f"  {coeff_x2}(x + {half_b})² - {coeff_x2 * sq_half_b} + {constant}\n\n"
+    proc += f"  {coeff_x2}({variable} + {half_b})² - {coeff_x2 * sq_half_b} + {constant}\n\n"
     
     # Paso 7: Simplificar constantes
     final_k = constant - coeff_x2 * sq_half_b
     proc += f"Paso 6: Simplificar constante\n"
-    proc += f"  {coeff_x2}(x + {half_b})² + {final_k}\n\n"
+    proc += f"  {coeff_x2}({variable} + {half_b})² + {final_k}\n\n"
     
     # h es el opuesto del término dentro del paréntesis
     h = -half_b
     k = final_k
     
-    proc += f"FORMA COMPLETADA: {coeff_x2}(x - ({h}))² + {k}\n"
-    proc += f"O equivalentemente: {coeff_x2}(x - {h})² + {k}\n"
+    proc += f"FORMA COMPLETADA: {coeff_x2}({variable} - ({h}))² + {k}\n"
+    proc += f"O equivalentemente: {coeff_x2}({variable} - {h})² + {k}\n"
     
     return h, k, proc
 
@@ -104,10 +105,10 @@ def transformar_circunferencia_a_canonica(A, C, D, E):
     proc += f"  (x² + {C/A}x) + (y² + {D/A}y) + {E/A} = 0\n\n"
     
     # Completar cuadrados
-    h, k_x, proc_x = completar_cuadrado_univar(1, C/A, 0)
+    h, k_x, proc_x = completar_cuadrado_univar(1, C/A, 0, variable='x')
     proc += f"Para x:\n{proc_x}\n"
     
-    h_y, k_y, proc_y = completar_cuadrado_univar(1, D/A, 0)
+    h_y, k_y, proc_y = completar_cuadrado_univar(1, D/A, 0, variable='y')
     proc += f"\nPara y:\n{proc_y}\n"
     
     # Calcular r²
@@ -180,11 +181,11 @@ def transformar_elipse_a_canonica(A, B, C, D, E):
     proc += f"  ({A}x² + {C}x) + ({B}y² + {D}y) + {E} = 0\n\n"
     
     # Completar cuadrado para x
-    h_x, k_x, proc_x = completar_cuadrado_univar(A, C, 0)
+    h_x, k_x, proc_x = completar_cuadrado_univar(A, C, 0, variable='x')
     proc += f"Completar cuadrado para x:\n{proc_x}\n"
     
     # Completar cuadrado para y
-    h_y, k_y, proc_y = completar_cuadrado_univar(B, D, 0)
+    h_y, k_y, proc_y = completar_cuadrado_univar(B, D, 0, variable='y')
     proc += f"Completar cuadrado para y:\n{proc_y}\n"
     
     # Construir la ecuación completada
@@ -260,11 +261,11 @@ def transformar_hiperbola_a_canonica(A, B, C, D, E):
     proc += f"  ({A}x² + {C}x) + ({B}y² + {D}y) + {E} = 0\n\n"
     
     # Completar cuadrado para x
-    h_x, k_x, proc_x = completar_cuadrado_univar(A, C, 0)
+    h_x, k_x, proc_x = completar_cuadrado_univar(A, C, 0, variable='x')
     proc += f"Completar cuadrado para x:\n{proc_x}\n"
     
     # Completar cuadrado para y (considerando que B es negativo)
-    h_y, k_y, proc_y = completar_cuadrado_univar(B, D, 0)
+    h_y, k_y, proc_y = completar_cuadrado_univar(B, D, 0, variable='y')
     proc += f"Completar cuadrado para y:\n{proc_y}\n"
     
     # Construir la ecuación completada
@@ -406,7 +407,7 @@ def transformar_parabola_a_canonica(A, B, C, D, E):
         proc += f"  {C}x = -{B}y² - {D}y - {E}\n\n"
         
         proc += f"Paso 2: Completar cuadrado para y\n"
-        h_y, k_y, proc_y = completar_cuadrado_univar(B, D, 0)
+        h_y, k_y, proc_y = completar_cuadrado_univar(B, D, 0, variable='y')
         proc += proc_y
         
         proc += f"\nPaso 3: Sustituir en ecuación\n"

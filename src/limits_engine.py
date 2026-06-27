@@ -123,6 +123,12 @@ def _fmt(v: Optional[float], dec: int = 5) -> str:
         return "−∞"
     if v != v:
         return "indeterminado"
+    # Valores numéricamente muy grandes se muestran como palabras 'mas infinito'/'menos infinito'
+    try:
+        if abs(float(v)) > 1e8:
+            return 'mas infinito' if float(v) > 0 else 'menos infinito'
+    except Exception:
+        pass
     factor = 10 ** dec
     r = round(v * factor) / factor
     return str(int(r)) if r == int(r) else str(r)
@@ -205,7 +211,7 @@ class MotorLimites:
             has_tramos = False
 
         elif caso == 1:
-            # ─── CASO 1: Discontinuidad de Salto ──────────────────────────
+            # ─── CASO 1: Discontinuidad de Salto / Continuidad ───────────
             # f₁(x) = x + d₂  (x < a)
             # f₂(x) = x + d₄  (x ≥ a)
             d2 = self.d2
@@ -332,11 +338,7 @@ class MotorLimites:
         )
 
         # ── 7. Regla del residuo (texto para pantalla) ────────────────────
-        nombre_caso = {
-            0: "Caso 1 → Discontinuidad Removible",
-            1: "Caso 2 → Discontinuidad de Salto",
-            2: "Caso 3 → Discontinuidad Infinita",
-        }[caso]
+        nombre_caso = f"Caso {caso + 1} → {tipo_disc}"
         regla_residuo = (
             f"d₈ = {self.d8}   →   {self.d8} % 3 = {caso}   →   {nombre_caso}"
         )
@@ -400,28 +402,53 @@ class MotorLimites:
             )
 
         elif caso == 1:
-            tipo = "De Salto"
             li  = _fmt(lim_izq)
             ld  = _fmt(lim_der)
-            if (lim_izq is not None and lim_der is not None
-                    and lim_izq not in (_INF, -_INF)
-                    and lim_der not in (_INF, -_INF)):
-                salto = _abs(lim_der - lim_izq)
-                salto_txt = _fmt(salto)
-            else:
-                salto_txt = "—"
-            desc = (
-                f"La función tiene dos ramas lineales distintas:\n"
-                f"  f₁(x) = x + {self.d2}   (x < {a})\n"
-                f"  f₂(x) = x + {self.d4}   (x ≥ {a})\n\n"
-                f"Los límites laterales existen pero son distintos:\n"
-                f"  lím_{{x→{a}⁻}} f(x) = {li}\n"
-                f"  lím_{{x→{a}⁺}} f(x) = {ld}\n\n"
-                f"Como lím⁻ ≠ lím⁺, el límite bilateral NO EXISTE.\n"
-                f"Magnitud del salto: |{ld} − {li}| = {salto_txt}\n\n"
-                f"f({a}) = {_fmt(f_en_a)}   (definida por el tramo f₂)\n\n"
-                f"Gráfico: ∘ en extremo izquierdo, ● en inicio del tramo derecho."
+            same_limits = (
+                lim_izq is not None and lim_der is not None
+                and lim_izq not in (_INF, -_INF)
+                and lim_der not in (_INF, -_INF)
+                and _abs(lim_izq - lim_der) < 1e-9
             )
+            same_value_at_point = (
+                f_en_a is not None and lim_izq is not None
+                and _abs(f_en_a - lim_izq) < 1e-9
+            )
+
+            if same_limits and same_value_at_point:
+                tipo = "Continua"
+                desc = (
+                    f"La función tiene dos ramas lineales:\n"
+                    f"  f₁(x) = x + {self.d2}   (x < {a})\n"
+                    f"  f₂(x) = x + {self.d4}   (x ≥ {a})\n\n"
+                    f"Los límites laterales coinciden:\n"
+                    f"  lím_{{x→{a}⁻}} f(x) = {li}\n"
+                    f"  lím_{{x→{a}⁺}} f(x) = {ld}\n\n"
+                    f"Además, f({a}) = {_fmt(f_en_a)} coincide con el límite.\n"
+                    f"Por lo tanto, la función es CONTINUA en x = {a}.\n\n"
+                    f"Gráfico: ambas ramas se conectan en x = {a} sin salto."
+                )
+            else:
+                tipo = "De Salto"
+                if (lim_izq is not None and lim_der is not None
+                        and lim_izq not in (_INF, -_INF)
+                        and lim_der not in (_INF, -_INF)):
+                    salto = _abs(lim_der - lim_izq)
+                    salto_txt = _fmt(salto)
+                else:
+                    salto_txt = "—"
+                desc = (
+                    f"La función tiene dos ramas lineales distintas:\n"
+                    f"  f₁(x) = x + {self.d2}   (x < {a})\n"
+                    f"  f₂(x) = x + {self.d4}   (x ≥ {a})\n\n"
+                    f"Los límites laterales existen pero son distintos:\n"
+                    f"  lím_{{x→{a}⁻}} f(x) = {li}\n"
+                    f"  lím_{{x→{a}⁺}} f(x) = {ld}\n\n"
+                    f"Como lím⁻ ≠ lím⁺, el límite bilateral NO EXISTE.\n"
+                    f"Magnitud del salto: |{ld} − {li}| = {salto_txt}\n\n"
+                    f"f({a}) = {_fmt(f_en_a)}   (definida por el tramo f₂)\n\n"
+                    f"Gráfico: ∘ en extremo izquierdo, ● en inicio del tramo derecho."
+                )
 
         else:
             tipo = "Infinita (Asintótica)"
@@ -1060,8 +1087,9 @@ class PestanaFuncionesPorTramos:
                     facecolors=_CLOSED_FC, edgecolors=_CURVE, linewidths=2.5,
                     zorder=6, label=f'● f({a}) = {_fmt(f_en_a)} (incluido)'
                 )
+            tipo_disc = r.get('tipo_disc', 'Discontinuidad de Salto')
             titulo = (
-                f'Caso 2 — Discontinuidad de Salto\n'
+                f'Caso 2 — {tipo_disc}\n'
                 f'f₁(x)=x+{r["d2"]}  (x<{a})     f₂(x)=x+{r["d4"]}  (x≥{a})'
             )
 
@@ -1221,14 +1249,19 @@ class PestanaFuncionesPorTramos:
             }
 
         if caso == 1:
+            existe_bilateral = 'Sí' if result.get('existe_limite') else 'No'
+            justif_tokens = ['salto', self._formatear_numero(lim_izq), self._formatear_numero(lim_der)]
+            if es_continua:
+                justif_tokens = ['continua', self._formatear_numero(lim_izq), self._formatear_numero(lim_der)]
+
             return {
                 'lim_izq': {'label': 'Límite lateral izquierdo', 'expected': self._formatear_numero(lim_izq), 'kind': 'number', 'value': lim_izq},
                 'lim_der': {'label': 'Límite lateral derecho', 'expected': self._formatear_numero(lim_der), 'kind': 'number', 'value': lim_der},
-                'existe': {'label': 'Existe el límite bilateral', 'expected': 'No', 'kind': 'bool', 'value': False},
+                'existe': {'label': 'Existe el límite bilateral', 'expected': existe_bilateral, 'kind': 'bool', 'value': bool(result.get('existe_limite'))},
                 'f_en_a': {'label': 'Valor de f(a)', 'expected': self._formatear_numero(f_en_a), 'kind': 'number', 'value': f_en_a},
-                'continua': {'label': 'Es continua en x = a', 'expected': 'No', 'kind': 'bool', 'value': False},
+                'continua': {'label': 'Es continua en x = a', 'expected': 'Sí' if es_continua else 'No', 'kind': 'bool', 'value': es_continua},
                 'tipo_disc': {'label': 'Tipo de discontinuidad', 'expected': tipo_disc, 'kind': 'text', 'tokens': [tipo_disc]},
-                'justif': {'label': 'Justificación escrita', 'expected': 'salto', 'kind': 'text', 'tokens': ['salto', self._formatear_numero(lim_izq), self._formatear_numero(lim_der)]},
+                'justif': {'label': 'Justificación escrita', 'expected': 'salto' if not es_continua else 'continua', 'kind': 'text', 'tokens': justif_tokens},
             }
 
         return {
@@ -1237,8 +1270,8 @@ class PestanaFuncionesPorTramos:
             'existe': {'label': 'Existe el límite bilateral', 'expected': 'No', 'kind': 'bool', 'value': False},
             'f_en_a': {'label': 'Valor de f(a)', 'expected': 'No definida', 'kind': 'text', 'tokens': ['no definida', 'indefinida']},
             'continua': {'label': 'Es continua en x = a', 'expected': 'No', 'kind': 'bool', 'value': False},
-            'tipo_disc': {'label': 'Tipo de discontinuidad', 'expected': tipo_disc, 'kind': 'text', 'tokens': [tipo_disc]},
-            'justif': {'label': 'Justificación escrita', 'expected': 'asíntota vertical', 'kind': 'text', 'tokens': ['asintota vertical', f'x = {self._formatear_numero(a)}']},
+            'tipo_disc': {'label': 'Tipo de discontinuidad', 'expected': tipo_disc, 'kind': 'text', 'tokens': [tipo_disc, 'infinita', 'infinita (asintotica)', 'infinita asintotica', 'asintota', 'asintotica']},
+            'justif': {'label': 'Justificación escrita', 'expected': 'asíntota vertical', 'kind': 'text', 'tokens': ['asintota vertical', 'asintota', 'infinita', f'x = {self._formatear_numero(a)}']},
         }
 
     def _comparar_respuesta_defensa(self, respuesta: str, spec: Dict[str, Any]) -> bool:
@@ -1251,7 +1284,27 @@ class PestanaFuncionesPorTramos:
             return esperado in respuesta_norm
 
         if kind == 'number':
-            esperado = self._formatear_numero(spec.get('value'))
+            valor = spec.get('value')
+            # Aceptar notación textual para infinitos: "mas infinito", "menos infinito", "infinito positivo/negativo"
+            if valor == _INF:
+                tokens = ('+infinito', 'masinfinito', 'infinitopositivo', 'positivoinfinito', 'infinito', '+inf', '+infty', 'infty')
+                return any(tok in respuesta_norm for tok in tokens)
+            if valor == -_INF:
+                tokens = ('-infinito', 'menosinfinito', 'infinitonegativo', 'negativoinfinito', '-inf', '-infty', 'infty')
+                return any(tok in respuesta_norm for tok in tokens)
+            # Aceptar texto 'infinito' cuando el valor numérico es extremadamente grande
+            try:
+                vnum = float(valor)
+            except Exception:
+                vnum = None
+            if vnum is not None and abs(vnum) > 1e8:
+                # si el número es muy grande, aceptar 'infinito' como respuesta equivalente
+                if vnum > 0:
+                    tokens = ('+infinito', 'masinfinito', 'infinitopositivo', 'positivoinfinito', 'infinito')
+                else:
+                    tokens = ('-infinito', 'menosinfinito', 'infinitonegativo', 'negativoinfinito', 'infinito')
+                return any(tok in respuesta_norm for tok in tokens)
+            esperado = self._formatear_numero(valor)
             return esperado in respuesta_norm
 
         if kind == 'value_or_text':
@@ -1260,10 +1313,37 @@ class PestanaFuncionesPorTramos:
                 return any(token in respuesta_norm for token in ('nodefinida', 'indefinida', 'nosedefine'))
             return self._formatear_numero(valor) in respuesta_norm
 
-        tokens = [self._normalizar_texto(token) for token in spec.get('tokens', []) if token]
-        if not tokens:
+        # Tokenización tolerante: aceptar si cualquier palabra clave aparece en la respuesta
+        raw_tokens = [t for t in spec.get('tokens', []) if t]
+        if not raw_tokens:
             return False
-        return all(token in respuesta_norm for token in tokens)
+        norm_tokens = [self._normalizar_texto(t) for t in raw_tokens]
+
+        # Descomponer cada token en subpalabras (p.ej. 'asintota vertical' -> ['asintota','vertical'])
+        subtokens = set()
+        for t in raw_tokens:
+            # separar por caracteres no alfanuméricos
+            parts = ''.join(ch if ch.isalnum() else ' ' for ch in t).split()
+            for p in parts:
+                subtokens.add(self._normalizar_texto(p))
+
+        # También incluir las formas completas normalizadas
+        for t in norm_tokens:
+            subtokens.add(t)
+
+        # Aceptar si alguna subpalabra aparece en la respuesta normalizada
+        for st in subtokens:
+            if not st:
+                continue
+            if st in respuesta_norm:
+                return True
+
+        # Fallback: aceptar si la respuesta contiene alguna de las formas completas (por si hay paréntesis u otros)
+        for t in norm_tokens:
+            if t in respuesta_norm:
+                return True
+
+        return False
 
     def _normalizar_texto(self, texto: str) -> str:
         """Normaliza texto para comparación tolerante."""
