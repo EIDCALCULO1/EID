@@ -439,112 +439,18 @@ class InterfazAnalisisConicas:
             fill='x', padx=14, pady=(0, 6)
         )
 
-        # ── Área scrollable con los 6 campos ──
-        scroll = ctk.CTkScrollableFrame(
+        # ── Área scrollable con los campos de defensa ──
+        self._defense_scroll = ctk.CTkScrollableFrame(
             parent,
             fg_color='transparent',
             scrollbar_button_color=_C['border'],
             scrollbar_button_hover_color='#BDBDBD',
             corner_radius=0
         )
-        scroll.pack(fill='both', expand=True, padx=8, pady=(0, 4))
+        self._defense_scroll.pack(fill='both', expand=True, padx=8, pady=(0, 4))
 
-        # ── Definición de los 6 campos de defensa ──
-        # Cada tupla: (clave_dict, icono+etiqueta, placeholder)
-        CAMPOS_DEFENSA = [
-            (
-                'centro',
-                '📍',
-                'Centro (h, k)',
-                'Ej: (h, k)'
-            ),
-            (
-                'vertices',
-                '◆',
-                'Vértices',
-                'Ej: (x₁, y₁)  y  (x₂, y₂)'
-            ),
-            (
-                'focos',
-                '✦',
-                'Focos',
-                'Ej: F₁(x₁, y₁)  y  F₂(x₂, y₂)'
-            ),
-            (
-                'eje_mayor',
-                '↔',
-                'Long. Eje Mayor / Transverso',
-                'Ej: 2a =  ...'
-            ),
-            (
-                'eje_menor',
-                '↕',
-                'Long. Eje Menor / Conjugado',
-                'Ej: 2b =  ...'
-            ),
-            (
-                'dir_asin',
-                '—',
-                'Directriz / Asíntotas',   # <- texto dinámico, cambia con la cónica
-                'Ej: y = k ± (b/a)(x − h)'
-            ),
-        ]
-
-        for key, icono, etiqueta, placeholder in CAMPOS_DEFENSA:
-            # Tarjeta individual de campo
-            campo_card = ctk.CTkFrame(
-                scroll,
-                fg_color=_C['def_field_bg'],
-                corner_radius=9,
-                border_color=_C['def_field_brd'],
-                border_width=1
-            )
-            campo_card.pack(fill='x', padx=4, pady=(0, 8))
-
-            # Fila de encabezado del campo (icono + etiqueta)
-            lbl_row = ctk.CTkFrame(campo_card, fg_color='transparent')
-            lbl_row.pack(fill='x', padx=10, pady=(10, 4))
-
-            ctk.CTkLabel(
-                lbl_row,
-                text=icono,
-                font=ctk.CTkFont(family='Segoe UI', size=13),
-                text_color=_C['primary_lt'],
-                width=22,
-                anchor='w'
-            ).pack(side='left')
-
-            lbl = ctk.CTkLabel(
-                lbl_row,
-                text=etiqueta,
-                font=ctk.CTkFont(family='Segoe UI', size=11, weight='bold'),
-                text_color=_C['primary'],
-                anchor='w'
-            )
-            lbl.pack(side='left', fill='x', expand=True)
-
-            # Guardar referencia al label del campo dir_asin para actualización dinámica
-            if key == 'dir_asin':
-                self._label_dir_asin = lbl
-
-            # ─────────────────────────────────────────────────────────────
-            # CTkEntry VACÍO
-            # RESTRICCIÓN: este entry NUNCA es manipulado por código del
-            # sistema. Queda siempre vacío hasta que el estudiante escriba.
-            # ─────────────────────────────────────────────────────────────
-            entry = ctk.CTkEntry(
-                campo_card,
-                placeholder_text=placeholder,
-                height=36,
-                font=ctk.CTkFont(family='Consolas', size=11),
-                border_color=_C['def_entry_brd'],
-                corner_radius=7,
-                fg_color='#FFFFFF'
-            )
-            entry.pack(fill='x', padx=10, pady=(0, 10))
-
-            # Almacenar referencia (solo para poder borrarlos con el botón manual)
-            self._defense_entries[key] = entry
+        # Poblar inicialmente con los campos estándar de la elipse
+        self._rebuild_defense_fields('elipse')
 
         # ── Botón para limpiar los campos de defensa (acción del estudiante) ──
         ctk.CTkButton(
@@ -579,6 +485,74 @@ class InterfazAnalisisConicas:
         )
         self._defense_status_label.pack(fill='x', padx=14, pady=(0, 14))
 
+    def _rebuild_defense_fields(self, conic_type: str) -> None:
+        """Reconstruye dinámicamente los campos de la defensa según el tipo de cónica."""
+        for widget in self._defense_scroll.winfo_children():
+            widget.destroy()
+        self._defense_entries.clear()
+        self._label_dir_asin = None
+
+        if conic_type == 'circunferencia':
+            CAMPOS = [
+                ('centro', '📍', 'Centro (h, k)', 'Ej: (h, k)'),
+                ('radio', '⭕', 'Radio (r)', 'Ej: r = ...')
+            ]
+        else:
+            CAMPOS = [
+                ('centro', '📍', 'Centro (h, k)' if conic_type != 'parábola' else 'Vértice (h, k)', 'Ej: (h, k)'),
+                ('vertices', '◆', 'Vértices', 'Ej: (x₁, y₁)  y  (x₂, y₂)'),
+                ('focos', '✦', 'Focos', 'Ej: F₁(x₁, y₁)  y  F₂(x₂, y₂)'),
+                ('eje_mayor', '↔', 'Long. Eje Mayor / Transverso', 'Ej: 2a =  ...'),
+                ('eje_menor', '↕', 'Long. Eje Menor / Conjugado', 'Ej: 2b =  ...'),
+                ('dir_asin', '—', 'Directriz / Asíntotas' if conic_type == 'hipérbola' else ('Ecuación de la Directriz' if conic_type == 'parábola' else 'Directriz / Asíntotas (N/A)'), 'Ej: y = k ± (b/a)(x − h)')
+            ]
+
+        for key, icono, etiqueta, placeholder in CAMPOS:
+            campo_card = ctk.CTkFrame(
+                self._defense_scroll,
+                fg_color=_C['def_field_bg'],
+                corner_radius=9,
+                border_color=_C['def_field_brd'],
+                border_width=1
+            )
+            campo_card.pack(fill='x', padx=4, pady=(0, 8))
+
+            lbl_row = ctk.CTkFrame(campo_card, fg_color='transparent')
+            lbl_row.pack(fill='x', padx=10, pady=(10, 4))
+
+            ctk.CTkLabel(
+                lbl_row,
+                text=icono,
+                font=ctk.CTkFont(family='Segoe UI', size=13),
+                text_color=_C['primary_lt'],
+                width=22,
+                anchor='w'
+            ).pack(side='left')
+
+            lbl = ctk.CTkLabel(
+                lbl_row,
+                text=etiqueta,
+                font=ctk.CTkFont(family='Segoe UI', size=11, weight='bold'),
+                text_color=_C['primary'],
+                anchor='w'
+            )
+            lbl.pack(side='left', fill='x', expand=True)
+
+            if key == 'dir_asin':
+                self._label_dir_asin = lbl
+
+            entry = ctk.CTkEntry(
+                campo_card,
+                placeholder_text=placeholder,
+                height=36,
+                font=ctk.CTkFont(family='Consolas', size=11),
+                border_color=_C['def_entry_brd'],
+                corner_radius=7,
+                fg_color='#FFFFFF'
+            )
+            entry.pack(fill='x', padx=10, pady=(0, 10))
+            self._defense_entries[key] = entry
+
     # ─────────────────────────────────────────────────────────────────────────
     # Handlers de eventos
     # ─────────────────────────────────────────────────────────────────────────
@@ -611,7 +585,8 @@ class InterfazAnalisisConicas:
             return
 
         self.current_result = result
-
+        self._rebuild_defense_fields(result.get('conic_type', ''))
+ 
         # Actualizar paneles de información
         self._update_text_panel(rut, validation, result)
         self._update_summary_panel(result)
@@ -638,6 +613,7 @@ class InterfazAnalisisConicas:
         del estudiante usando el botón "Limpiar campos de defensa").
         """
         self.rut_entry_widget.delete(0, 'end')
+        self._rebuild_defense_fields('elipse')
 
         self.text_widget.configure(state='normal')
         self.text_widget.delete('1.0', 'end')
@@ -734,11 +710,7 @@ class InterfazAnalisisConicas:
             centro = self._formatear_punto(h, k)
             return {
                 'centro': {'label': 'Centro', 'expected': centro, 'kind': 'point', 'tokens': [centro]},
-                'vertices': {'label': 'Vértices', 'expected': f'{self._formatear_punto(h + r, k)} / {self._formatear_punto(h - r, k)}', 'kind': 'contains_all', 'tokens': [self._formatear_punto(h + r, k), self._formatear_punto(h - r, k)]},
-                'focos': {'label': 'Focos', 'expected': f'{centro}', 'kind': 'text', 'tokens': [centro]},
-                'eje_mayor': {'label': 'Long. Eje Mayor / Transverso', 'expected': self._formatear_numero(2 * r), 'kind': 'number', 'value': 2 * r},
-                'eje_menor': {'label': 'Long. Eje Menor / Conjugado', 'expected': self._formatear_numero(2 * r), 'kind': 'number', 'value': 2 * r},
-                'dir_asin': {'label': 'Directriz / Asíntotas', 'expected': 'No aplica', 'kind': 'na'},
+                'radio': {'label': 'Radio', 'expected': self._formatear_numero(r), 'kind': 'number', 'value': r},
             }
 
         if conic_type == 'elipse':
@@ -988,15 +960,30 @@ class InterfazAnalisisConicas:
             elif ctype == 'elipse':
                 h   = canonical.get('h', 0)
                 k   = canonical.get('k', 0)
-                a2  = canonical.get('a_squared', '?')
-                b2  = canonical.get('b_squared', '?')
+                a2  = canonical.get('a_squared', 0)
+                b2  = canonical.get('b_squared', 0)
+                # Si a_squared (denominador x) >= b_squared (denominador y)
+                # → eje mayor horizontal: (x-h)²/a² + (y-k)²/b² = 1
+                # Si b_squared > a_squared → eje mayor vertical:
+                #   (x-h)²/a² + (y-k)²/b² = 1  (misma forma, b² es el mayor)
+                # La ecuación canónica siempre tiene la misma forma para la
+                # elipse; solo cambia qué término es mayor.
                 lines.append(f'Canónica : (x − {h})²/{a2} + (y − {k})²/{b2} = 1')
             elif ctype == 'hipérbola':
-                h  = canonical.get('h', 0)
-                k  = canonical.get('k', 0)
-                a2 = canonical.get('a_squared', '?')
-                b2 = canonical.get('b_squared', '?')
-                lines.append(f'Canónica : (x − {h})²/{a2} − (y − {k})²/{abs(b2) if b2 != "?" else "?"} = 1')
+                h      = canonical.get('h', 0)
+                k      = canonical.get('k', 0)
+                a2     = canonical.get('a_squared', 0)
+                b2     = canonical.get('b_squared', 0)
+                is_vert = canonical.get('is_vertical', False)
+                # SINCRONIZACIÓN DE ORIENTACIÓN:
+                # Horizontal: (x-h)²/a² − (y-k)²/b² = 1
+                #   a = semitransverso en x, b = semiconjugado en y
+                # Vertical:   (y-k)²/a² − (x-h)²/b² = 1
+                #   a = semitransverso en y, b = semiconjugado en x
+                if not is_vert:
+                    lines.append(f'Canónica : (x − {h})²/{a2} − (y − {k})²/{b2} = 1')
+                else:
+                    lines.append(f'Canónica : (y − {k})²/{a2} − (x − {h})²/{b2} = 1')
             elif ctype == 'parábola':
                 h    = canonical.get('h', 0)
                 k    = canonical.get('k', 0)

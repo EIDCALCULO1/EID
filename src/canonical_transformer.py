@@ -216,8 +216,8 @@ def transformar_elipse_a_canonica(A, B, C, D, E):
     b_squared = rhs / B
     
     # Calcular a y b
-    a = (a_squared ** 0.5) if a_squared > 0 else None
-    b = (b_squared ** 0.5) if b_squared > 0 else None
+    a = (abs(a_squared) ** 0.5) if a_squared != 0 else 1.0
+    b = (abs(b_squared) ** 0.5) if b_squared != 0 else 1.0
     
     if a and b:
         proc += f"FORMA CANÓNICA: (x - {h_x})²/{a_squared} + (y - {h_y})²/{b_squared} = 1\n"
@@ -292,22 +292,41 @@ def transformar_hiperbola_a_canonica(A, B, C, D, E):
     proc += f"Paso 4: Dividir ambos lados por {rhs} para obtener forma estándar\n"
     proc += f"  (x - {h_x})²/{rhs/A} + (y - {h_y})²/{rhs/B} = 1\n\n"
     
-    a_squared = rhs / A
-    b_squared = rhs / B
+    a_squared_val = rhs / A
+    b_squared_val = rhs / B
     
-    # Calcular a y b
-    a = (a_squared ** 0.5) if a_squared > 0 else None
-    b = ((-b_squared) ** 0.5) if b_squared < 0 else None
+    # Determinar cuál término es el positivo (eje transverso)
+    if a_squared_val > 0:
+        # Horizontal: (x - h_x)²/a² - (y - h_y)²/b² = 1
+        a_squared = a_squared_val
+        b_squared = -b_squared_val
+        a = a_squared ** 0.5
+        b = b_squared ** 0.5
+        is_vertical = False
+    else:
+        # Vertical: (y - h_y)²/a² - (x - h_x)²/b² = 1
+        a_squared = b_squared_val
+        b_squared = -a_squared_val
+        a = a_squared ** 0.5
+        b = b_squared ** 0.5
+        is_vertical = True
     
     if a and b:
-        proc += f"FORMA CANÓNICA: (x - {h_x})²/{a_squared} - (y - {h_y})²/{-b_squared} = 1\n"
-        proc += f"Centro: ({h_x}, {h_y})\n"
-        proc += f"Eje transversal (eje x): a = {a}\n"
-        proc += f"Eje conjugado (eje y): b = {b}\n"
+        if not is_vertical:
+            proc += f"FORMA CANÓNICA: (x - {h_x})²/{a_squared} - (y - {h_y})²/{b_squared} = 1\n"
+            proc += f"Centro: ({h_x}, {h_y})\n"
+            proc += f"Eje transversal (eje x): a = {a}\n"
+            proc += f"Eje conjugado (eje y): b = {b}\n"
+        else:
+            proc += f"FORMA CANÓNICA: (y - {h_y})²/{a_squared} - (x - {h_x})²/{b_squared} = 1\n"
+            proc += f"Centro: ({h_x}, {h_y})\n"
+            proc += f"Eje transversal (eje y): a = {a}\n"
+            proc += f"Eje conjugado (eje x): b = {b}\n"
     
     return {
         'procedure': proc,
-        'type': 'hipérbola',
+        'type': 'hipérbola' if not is_vertical else 'hipérbola_vertical',
+        'is_vertical': is_vertical,
         'h': h_x,
         'k': h_y,
         'a_squared': a_squared,

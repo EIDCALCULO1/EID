@@ -188,16 +188,26 @@ class RenderizadorGraficosConicas:
         else:
             self._dibujar_mensaje(f"Tipo no reconocido: {tipo}")
 
-        # Leyenda y estética final
+        # Leyenda fuera del recuadro del plano cartesiano — flota a la derecha
+        # bbox_to_anchor=(1.02, 1) la ancla justo fuera del borde derecho del Axes
         self.ax.legend(
-            loc='upper right',
+            loc='upper left',
+            bbox_to_anchor=(1.02, 1),
+            borderaxespad=0,
             fontsize=8,
             framealpha=0.85,
-            edgecolor='#BDBDBD'
+            edgecolor='#BDBDBD',
+            markerscale=0.85,
+            borderpad=0.6,
+            labelspacing=0.35,
+            handlelength=1.5,
+            handletextpad=0.5
         )
+        # tight_layout() + subplots_adjust: margen derecho reducido para
+        # que Matplotlib reserve espacio a la leyenda externa
         self.figure.tight_layout()
         self.ax.set_anchor('C')
-        self.figure.subplots_adjust(left=0.10, right=0.96, top=0.93, bottom=0.10)
+        self.figure.subplots_adjust(left=0.10, right=0.72, top=0.93, bottom=0.10)
 
         # Incrustar en Tkinter
         self.canvas = FigureCanvasTkAgg(self.figure, master=self.parent)
@@ -320,7 +330,10 @@ class RenderizadorGraficosConicas:
         marcador: str = 'o',
         tamaño: int = 8,
         label: Optional[str] = None,
-        zorder: int = 5
+        zorder: int = 5,
+        text_offset: Tuple[int, int] = (6, 6),
+        ha: str = 'left',
+        va: str = 'bottom'
     ) -> None:
         self.ax.plot(
             x, y,
@@ -332,14 +345,16 @@ class RenderizadorGraficosConicas:
             linestyle='None'
         )
         if label:
-            # Texto con coordenadas junto al punto
+            # Texto con coordenadas junto al punto — desfase inteligente por rol
             self.ax.annotate(
                 f'({x:.3g}, {y:.3g})',
                 xy=(x, y),
-                xytext=(6, 6),
+                xytext=text_offset,
                 textcoords='offset points',
                 fontsize=7,
-                color=color
+                color=color,
+                ha=ha,
+                va=va
             )
 
     def _dibujar_linea_segmento(
@@ -400,7 +415,8 @@ class RenderizadorGraficosConicas:
 
         # --- Centro ---
         self._marcar_punto(h, k, self.COLOR_CENTRO, 'o', 9,
-                           label=f'Centro ({h:.4g}, {k:.4g})')
+                           label=f'Centro ({h:.4g}, {k:.4g})',
+                           text_offset=(-8, 8), ha='right', va='bottom')
 
         # --- Ejes de simetría (horizontal y vertical por el centro) ---
         x_min, x_max, y_min, y_max = _calcular_rango_dinamico(h, k, r, r)
@@ -473,34 +489,45 @@ class RenderizadorGraficosConicas:
 
         # --- Centro ---
         self._marcar_punto(h, k, self.COLOR_CENTRO, 'o', 9,
-                           label=f'Centro ({h:.4g}, {k:.4g})')
+                           label=f'Centro ({h:.4g}, {k:.4g})',
+                           text_offset=(-8, 8), ha='right', va='bottom')
 
         # --- Vértices (extremos del semieje mayor y menor) ---
+        # Horizontales: empujar hacia los extremos exteriores
         self._marcar_punto(h + a_x, k, self.COLOR_VERTICES, 's', 7,
-                           label=f'Vértice ({h+a_x:.4g}, {k:.4g})')
+                           label=f'Vértice ({h+a_x:.4g}, {k:.4g})',
+                           text_offset=(8, 6), ha='left', va='bottom')
         self._marcar_punto(h - a_x, k, self.COLOR_VERTICES, 's', 7,
-                           label=f'Vértice ({h-a_x:.4g}, {k:.4g})')
+                           label=f'Vértice ({h-a_x:.4g}, {k:.4g})',
+                           text_offset=(-8, 6), ha='right', va='bottom')
+        # Verticales: empujar hacia arriba y abajo
         self._marcar_punto(h, k + b_y, self.COLOR_VERTICES, 's', 7,
-                           label=f'Vértice ({h:.4g}, {k+b_y:.4g})')
+                           label=f'Vértice ({h:.4g}, {k+b_y:.4g})',
+                           text_offset=(6, 8), ha='left', va='bottom')
         self._marcar_punto(h, k - b_y, self.COLOR_VERTICES, 's', 7,
-                           label=f'Vértice ({h:.4g}, {k-b_y:.4g})')
+                           label=f'Vértice ({h:.4g}, {k-b_y:.4g})',
+                           text_offset=(6, -8), ha='left', va='top')
 
         # --- Focos ---
         # c² = |a_x² - b_y²|; focos en el eje mayor
         if a_x >= b_y:
-            # eje mayor horizontal
+            # eje mayor horizontal → focos se desplazan hacia abajo
             c = _sqrt(a_x * a_x - b_y * b_y)
             self._marcar_punto(h + c, k, self.COLOR_FOCOS, '^', 8,
-                               label=f'Foco ({h+c:.4g}, {k:.4g})')
+                               label=f'Foco ({h+c:.4g}, {k:.4g})',
+                               text_offset=(0, -10), ha='center', va='top')
             self._marcar_punto(h - c, k, self.COLOR_FOCOS, '^', 8,
-                               label=f'Foco ({h-c:.4g}, {k:.4g})')
+                               label=f'Foco ({h-c:.4g}, {k:.4g})',
+                               text_offset=(0, -10), ha='center', va='top')
         else:
-            # eje mayor vertical
+            # eje mayor vertical → focos se desplazan a la derecha
             c = _sqrt(b_y * b_y - a_x * a_x)
             self._marcar_punto(h, k + c, self.COLOR_FOCOS, '^', 8,
-                               label=f'Foco ({h:.4g}, {k+c:.4g})')
+                               label=f'Foco ({h:.4g}, {k+c:.4g})',
+                               text_offset=(8, 0), ha='left', va='center')
             self._marcar_punto(h, k - c, self.COLOR_FOCOS, '^', 8,
-                               label=f'Foco ({h:.4g}, {k-c:.4g})')
+                               label=f'Foco ({h:.4g}, {k-c:.4g})',
+                               text_offset=(8, 0), ha='left', va='center')
 
         # --- Ejes de simetría ---
         # Eje mayor (horizontal si a_x >= b_y, vertical si b_y > a_x)
@@ -521,8 +548,10 @@ class RenderizadorGraficosConicas:
             fontsize=9, pad=8
         )
 
-        # --- Límites dinámicos ---
-        radio_max = max(a_x, b_y)
+        # --- LÍMITES DINÁMICOS — Elipse ---
+        # a_x = semieje horizontal, b_y = semieje vertical.
+        # c² = |a_x² – b_y²| < max(a_x, b_y)² → los focos siempre quedan
+        # dentro del rango definido por los semiejes, sin ajuste extra.
         x_min, x_max, y_min, y_max = _calcular_rango_dinamico(h, k, a_x, b_y)
         self._aplicar_limites(x_min, x_max, y_min, y_max)
 
@@ -542,26 +571,30 @@ class RenderizadorGraficosConicas:
                    Asíntotas (2).
         """
         cd = self.canonical_data
-        h  = float(cd.get('h', 0))
-        k  = float(cd.get('k', 0))
-        a  = _abs(float(cd.get('a', 4)))
-        b  = _abs(float(cd.get('b', 3)))
+        h  = float(cd.get('h', 0) or 0)
+        k  = float(cd.get('k', 0) or 0)
+        a  = _abs(float(cd.get('a', 4) or 4))
+        b  = _abs(float(cd.get('b', 3) or 3))
 
         if a == 0:
             a = 1.0
         if b == 0:
             b = 1.0
 
-        # Detectar orientación
-        # canonical_data['type'] puede ser 'hipérbola_vertical' o 'hipérbola'
-        # También se infiere de los coeficientes: A > 0, B < 0 → horizontal
+        # DETECCIÓN DE ORIENTACIÓN — fuente única de verdad:
+        # 1) canonical_data['is_vertical'] (puesto por el transformador canónico)
+        #    → es el flag definitivo y matemáticamente correcto.
+        # 2) Fallback: 'vertical' en cd['type'] (e.g. 'hipérbola_vertical')
+        # 3) Último recurso: inferencia por rhs/A negativo con A>0
+        #    (A>0, B<0 con rhs<0 → los términos se invierten → VERTICAL)
         tipo_cd  = str(cd.get('type', ''))
         coef_A   = float(self.coefficients.get('A', 1))
         coef_B   = float(self.coefficients.get('B', -1))
 
         vertical = (
-            'vertical' in tipo_cd or
-            (coef_A < 0 and coef_B > 0)
+            cd.get('is_vertical', None) is True       # fuente primaria
+            or 'vertical' in tipo_cd                   # fallback tipo string
+            or (coef_A < 0 and coef_B > 0)             # fallback coeficientes
         )
 
         # a_sq, b_sq desde canonical_data si están disponibles
@@ -622,32 +655,45 @@ class RenderizadorGraficosConicas:
 
         # --- Centro ---
         self._marcar_punto(h, k, self.COLOR_CENTRO, 'o', 9,
-                           label=f'Centro ({h:.4g}, {k:.4g})')
+                           label=f'Centro ({h:.4g}, {k:.4g})',
+                           text_offset=(-8, 8), ha='right', va='bottom')
 
         # --- Vértices ---
         if not vertical:
+            # Horizontales: empujar hacia los extremos
             self._marcar_punto(h + a_real, k, self.COLOR_VERTICES, 's', 7,
-                               label=f'Vértice ({h+a_real:.4g}, {k:.4g})')
+                               label=f'Vértice ({h+a_real:.4g}, {k:.4g})',
+                               text_offset=(8, 6), ha='left', va='bottom')
             self._marcar_punto(h - a_real, k, self.COLOR_VERTICES, 's', 7,
-                               label=f'Vértice ({h-a_real:.4g}, {k:.4g})')
+                               label=f'Vértice ({h-a_real:.4g}, {k:.4g})',
+                               text_offset=(-8, 6), ha='right', va='bottom')
         else:
+            # Verticales: empujar arriba y abajo
             self._marcar_punto(h, k + a_real, self.COLOR_VERTICES, 's', 7,
-                               label=f'Vértice ({h:.4g}, {k+a_real:.4g})')
+                               label=f'Vértice ({h:.4g}, {k+a_real:.4g})',
+                               text_offset=(6, 8), ha='left', va='bottom')
             self._marcar_punto(h, k - a_real, self.COLOR_VERTICES, 's', 7,
-                               label=f'Vértice ({h:.4g}, {k-a_real:.4g})')
+                               label=f'Vértice ({h:.4g}, {k-a_real:.4g})',
+                               text_offset=(6, -8), ha='left', va='top')
 
         # --- Focos: c = sqrt(a² + b²) ---
         c = _sqrt(a_real * a_real + b_real * b_real)
         if not vertical:
+            # Focos horizontales → texto hacia abajo
             self._marcar_punto(h + c, k, self.COLOR_FOCOS, '^', 8,
-                               label=f'Foco ({h+c:.4g}, {k:.4g})')
+                               label=f'Foco ({h+c:.4g}, {k:.4g})',
+                               text_offset=(0, -10), ha='center', va='top')
             self._marcar_punto(h - c, k, self.COLOR_FOCOS, '^', 8,
-                               label=f'Foco ({h-c:.4g}, {k:.4g})')
+                               label=f'Foco ({h-c:.4g}, {k:.4g})',
+                               text_offset=(0, -10), ha='center', va='top')
         else:
+            # Focos verticales → texto a la derecha
             self._marcar_punto(h, k + c, self.COLOR_FOCOS, '^', 8,
-                               label=f'Foco ({h:.4g}, {k+c:.4g})')
+                               label=f'Foco ({h:.4g}, {k+c:.4g})',
+                               text_offset=(8, 0), ha='left', va='center')
             self._marcar_punto(h, k - c, self.COLOR_FOCOS, '^', 8,
-                               label=f'Foco ({h:.4g}, {k-c:.4g})')
+                               label=f'Foco ({h:.4g}, {k-c:.4g})',
+                               text_offset=(8, 0), ha='left', va='center')
 
         # --- Ejes de simetría ---
         extension = max(a_real, b_real, c) * 1.6
@@ -701,11 +747,28 @@ class RenderizadorGraficosConicas:
                       f' - (x-{h:.4g})^2/{b_real**2:.4g} = 1$')
         self.ax.set_title(titulo, fontsize=9, pad=8)
 
-        # --- Límites dinámicos ---
-        radio_x = max(a_real, c) if not vertical else max(b_real, c)
-        radio_y = max(b_real, c) if not vertical else max(a_real, c)
+        # --- LÍMITES DINÁMICOS CORREGIDOS — Hipérbola ---
+        # BUG ANTERIOR: radio_x = max(a, c) con margen 0.40 llegaba hasta
+        #   h ± c·1.40, pero las asíntotas y ejes se dibujan hasta
+        #   h ± extension = h ± c·1.60 → los extremos quedaban RECORTADOS.
+        #
+        # CORRECCIÓN: el rango usa 'extension' como radio base (mismo valor
+        # que determina hasta dónde se dibujan ejes y asíntotas).
+        # Además se añade la proyección de la asíntota en el eje perpendicular:
+        #   Horizontal → pendiente b/a: en x=±extension, y alcanza ±(b/a)·extension
+        #   Vertical   → pendiente a/b: en x=±extension, y alcanza ±(a/b)·extension
+        if not vertical:
+            # Horizontal: focos a h±c; asíntotas alcanzan y=k±(b/a)·extension
+            _asint_reach = (b_real / a_real * extension) if a_real > 0 else extension
+            _radio_x_lim = extension
+            _radio_y_lim = max(_asint_reach, b_real, c)
+        else:
+            # Vertical: focos a k±c; asíntotas alcanzan y=k±(a/b)·extension
+            _asint_reach = (a_real / b_real * extension) if b_real > 0 else extension
+            _radio_y_lim = max(_asint_reach, a_real, c)
+            _radio_x_lim = extension
         x_min, x_max, y_min, y_max = _calcular_rango_dinamico(
-            h, k, radio_x, radio_y, margen_rel=0.40
+            h, k, _radio_x_lim, _radio_y_lim, margen_rel=0.15
         )
         self._aplicar_limites(x_min, x_max, y_min, y_max)
 
@@ -759,12 +822,14 @@ class RenderizadorGraficosConicas:
 
             # Vértice
             self._marcar_punto(h, k, self.COLOR_VERTICES, 'D', 9,
-                               label=f'Vértice ({h:.4g}, {k:.4g})')
+                               label=f'Vértice ({h:.4g}, {k:.4g})',
+                               text_offset=(-8, 8), ha='right', va='bottom')
 
             # Foco: (h, k + p)
             foco_y = k + p
             self._marcar_punto(h, foco_y, self.COLOR_FOCOS, '^', 8,
-                               label=f'Foco ({h:.4g}, {foco_y:.4g})')
+                               label=f'Foco ({h:.4g}, {foco_y:.4g})',
+                               text_offset=(8, 0), ha='left', va='center')
 
             # Directriz: y = k - p
             dir_y = k - p
@@ -791,14 +856,23 @@ class RenderizadorGraficosConicas:
                 fontsize=9, pad=8
             )
 
-            # Límites dinámicos
-            y_extremo = k + radio_vis ** 2 / (4.0 * _abs(p))
-            radio_y   = _abs(y_extremo - k) * 0.55
-            x_min, x_max, y_min, y_max = _calcular_rango_dinamico(
-                h, k + radio_y * 0.3, radio_vis * 0.9, radio_y
-            )
-            # Incluir directriz en el rango
-            y_min = min(y_min, dir_y - 2)
+            # --- LÍMITES DINÁMICOS CORREGIDOS — Parábola vertical ---
+            # BUG ANTERIOR: radio_y = |y_extremo − k| × 0.55 recortaba el
+            # 45 % de la curva y el centro desplazado (k + radio_y×0.3)
+            # no correspondía con el bounding-box real de la figura.
+            #
+            # CORRECCIÓN: bounding-box exacto de todos los elementos
+            # {vértice, foco, directriz, extremo de curva en x=±radio_vis}
+            # más un margen proporcional a |p|.
+            _y_curva_ext = k + radio_vis ** 2 / (4.0 * p)  # usar p con signo
+            _y_inf = min(dir_y, k, foco_y, _y_curva_ext)
+            _y_sup = max(dir_y, k, foco_y, _y_curva_ext)
+            _marg_y = max(_abs(p) * 0.80, 2.0)
+            _marg_x = max(radio_vis * 0.15, 2.0)
+            x_min = h - radio_vis - _marg_x
+            x_max = h + radio_vis + _marg_x
+            y_min = _y_inf - _marg_y
+            y_max = _y_sup + _marg_y
             self._aplicar_limites(x_min, x_max, y_min, y_max)
 
         else:
@@ -816,12 +890,14 @@ class RenderizadorGraficosConicas:
 
             # Vértice
             self._marcar_punto(h, k, self.COLOR_VERTICES, 'D', 9,
-                               label=f'Vértice ({h:.4g}, {k:.4g})')
+                               label=f'Vértice ({h:.4g}, {k:.4g})',
+                               text_offset=(-8, 8), ha='right', va='bottom')
 
             # Foco: (h + p, k)
             foco_x = h + p
             self._marcar_punto(foco_x, k, self.COLOR_FOCOS, '^', 8,
-                               label=f'Foco ({foco_x:.4g}, {k:.4g})')
+                               label=f'Foco ({foco_x:.4g}, {k:.4g})',
+                               text_offset=(0, -10), ha='center', va='top')
 
             # Directriz: x = h - p
             dir_x = h - p
@@ -848,12 +924,20 @@ class RenderizadorGraficosConicas:
                 fontsize=9, pad=8
             )
 
-            # Límites dinámicos
-            x_extremo = h + radio_vis ** 2 / (4.0 * _abs(p))
-            radio_x   = _abs(x_extremo - h) * 0.55
-            x_min, x_max, y_min, y_max = _calcular_rango_dinamico(
-                h + radio_x * 0.3, k, radio_x, radio_vis * 0.9
-            )
-            # Incluir directriz en el rango
-            x_min = min(x_min, dir_x - 2)
+            # --- LÍMITES DINÁMICOS CORREGIDOS — Parábola horizontal ---
+            # BUG ANTERIOR: mismo problema que la vertical: radio_x × 0.55
+            # recortaba la rama y el centro estaba desplazado arbitrariamente.
+            #
+            # CORRECCIÓN: bounding-box exacto de
+            # {vértice, foco, directriz, extremo de curva en y=±radio_vis}
+            # más margen proporcional a |p|.
+            _x_curva_ext = h + radio_vis ** 2 / (4.0 * p)  # usar p con signo
+            _x_izq = min(dir_x, h, foco_x, _x_curva_ext)
+            _x_der = max(dir_x, h, foco_x, _x_curva_ext)
+            _marg_x = max(_abs(p) * 0.80, 2.0)
+            _marg_y = max(radio_vis * 0.15, 2.0)
+            x_min = _x_izq - _marg_x
+            x_max = _x_der + _marg_x
+            y_min = k - radio_vis - _marg_y
+            y_max = k + radio_vis + _marg_y
             self._aplicar_limites(x_min, x_max, y_min, y_max)
