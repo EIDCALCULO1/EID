@@ -8,6 +8,7 @@ Al ejecutar este archivo directamente, se abre la interfaz gráfica
 
 import sys
 import tkinter as tk
+import customtkinter as ctk
 
 # Configuración de DPI para evitar borrosidad en Windows
 if sys.platform.startswith('win'):
@@ -238,7 +239,6 @@ def run_cli() -> None:
 
 
 def run_gui() -> None:
-    import customtkinter as ctk
     root = ctk.CTk()
     app = InterfazAnalisisConicas(root)
     root.mainloop()

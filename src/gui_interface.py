@@ -18,7 +18,7 @@ import sys
 import tkinter as tk
 from tkinter import messagebox
 import customtkinter as ctk
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 # ── Apariencia global de CustomTkinter ────────────────────────────────────────
 ctk.set_appearance_mode("light")
@@ -65,6 +65,11 @@ _C = {
     'def_entry_brd': '#90A4C8',   # borde CTkEntry
     'def_clear_btn': '#4A5568',   # botón limpiar defensa
     'def_clear_hv':  '#2D3748',   # hover limpiar
+    'def_eval_btn':  '#1565C0',   # botón evaluar defensa
+    'def_eval_hv':   '#0D47A1',   # hover evaluar
+    'def_ok':        '#2E7D32',   # resultado correcto
+    'def_bad':       '#C62828',   # resultado incorrecto
+    'def_neutral':   '#90A4AE',   # estado neutro
 }
 
 
@@ -96,6 +101,7 @@ class InterfazAnalisisConicas:
         # Diccionario de CTkEntry del panel de defensa de cónicas
         # ⚠ NUNCA se escriben desde código: solo el estudiante los completa
         self._defense_entries: Dict[str, ctk.CTkEntry] = {}
+        self._defense_status_label: Optional[ctk.CTkLabel] = None
 
         # Pestaña de funciones por tramos (se instancia en _build_main_area)
         self._pestana_limites: Optional[PestanaFuncionesPorTramos] = None
@@ -543,6 +549,17 @@ class InterfazAnalisisConicas:
         # ── Botón para limpiar los campos de defensa (acción del estudiante) ──
         ctk.CTkButton(
             parent,
+            text='✅   Evaluar defensa',
+            command=self._evaluar_defensa,
+            height=34,
+            font=ctk.CTkFont(family='Segoe UI', size=11, weight='bold'),
+            fg_color=_C['def_eval_btn'],
+            hover_color=_C['def_eval_hv'],
+            corner_radius=8
+        ).pack(fill='x', padx=14, pady=(2, 8))
+
+        ctk.CTkButton(
+            parent,
             text='🗑   Limpiar campos de defensa',
             command=self._limpiar_campos_defensa,
             height=34,
@@ -550,7 +567,17 @@ class InterfazAnalisisConicas:
             fg_color=_C['def_clear_btn'],
             hover_color=_C['def_clear_hv'],
             corner_radius=8
-        ).pack(fill='x', padx=14, pady=(2, 14))
+        ).pack(fill='x', padx=14, pady=(0, 8))
+
+        self._defense_status_label = ctk.CTkLabel(
+            parent,
+            text='Pulsa “Evaluar defensa” para verificar cada campo.',
+            font=ctk.CTkFont(family='Segoe UI', size=10),
+            text_color=_C['def_neutral'],
+            justify='left',
+            anchor='w'
+        )
+        self._defense_status_label.pack(fill='x', padx=14, pady=(0, 14))
 
     # ─────────────────────────────────────────────────────────────────────────
     # Handlers de eventos
@@ -589,6 +616,7 @@ class InterfazAnalisisConicas:
         self._update_text_panel(rut, validation, result)
         self._update_summary_panel(result)
         self._render_conic(result)
+        self._reset_defense_evaluation()
 
         # Actualizar SOLO el texto de la etiqueta del campo 6 (el entry sigue vacío)
         self._update_label_dir_asin(result.get('conic_type', ''))
@@ -623,6 +651,8 @@ class InterfazAnalisisConicas:
             self.renderer.close()
             self.renderer = None
 
+        self._reset_defense_evaluation()
+
     def _limpiar_campos_defensa(self) -> None:
         """
         Limpia manualmente los 6 campos del panel de defensa.
@@ -630,6 +660,216 @@ class InterfazAnalisisConicas:
         """
         for entry in self._defense_entries.values():
             entry.delete(0, 'end')
+
+        self._reset_defense_evaluation()
+
+    def _evaluar_defensa(self) -> None:
+        """Evalúa los campos del panel de defensa contra el resultado actual."""
+        if self.current_result is None:
+            messagebox.showwarning(
+                'Sin resultado',
+                'Primero procese un RUT para generar la cónica y luego evalúe la defensa.'
+            )
+            return
+
+        expectativas = self._construir_expectativas_defensa(self.current_result)
+        correctos = 0
+        evaluables = 0
+        errores: List[str] = []
+
+        for key, spec in expectativas.items():
+            widget = self._defense_entries.get(key)
+            if widget is None:
+                continue
+
+            evaluables += 1
+            respuesta = widget.get().strip()
+            es_correcto = self._comparar_respuesta_defensa(respuesta, spec)
+            widget.configure(border_color=_C['def_ok'] if es_correcto else _C['def_bad'])
+
+            if es_correcto:
+                correctos += 1
+            else:
+                errores.append(f"{spec['label']}: se esperaba {spec['expected']}")
+
+        if self._defense_status_label is not None:
+            color = _C['def_ok'] if correctos == evaluables else _C['def_bad']
+            self._defense_status_label.configure(
+                text=f'Defensa: {correctos}/{evaluables} campos correctos.',
+                text_color=color
+            )
+
+        if correctos == evaluables:
+            messagebox.showinfo('Evaluación de defensa', 'Todos los campos evaluables están correctos.')
+        else:
+            detalle = '\n'.join(f'• {item}' for item in errores[:8])
+            if len(errores) > 8:
+                detalle += f'\n• ... y {len(errores) - 8} campo(s) más.'
+            messagebox.showwarning(
+                'Evaluación de defensa',
+                f'Hay {evaluables - correctos} campo(s) incorrecto(s).\n\n{detalle}'
+            )
+
+    def _reset_defense_evaluation(self) -> None:
+        """Restablece el estado visual de la evaluación de defensa."""
+        for widget in self._defense_entries.values():
+            widget.configure(border_color=_C['def_entry_brd'])
+
+        if self._defense_status_label is not None:
+            self._defense_status_label.configure(
+                text='Pulsa “Evaluar defensa” para verificar cada campo.',
+                text_color=_C['def_neutral']
+            )
+
+    def _construir_expectativas_defensa(self, result: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+        """Construye las respuestas esperadas para la defensa oral."""
+        canonical = result.get('canonical_transformation') or {}
+        conic_type = str(result.get('conic_type', ''))
+
+        h = float(canonical.get('h', 0) or 0)
+        k = float(canonical.get('k', 0) or 0)
+
+        if conic_type == 'circunferencia':
+            r = float(canonical.get('r', 0) or 0)
+            centro = self._formatear_punto(h, k)
+            return {
+                'centro': {'label': 'Centro', 'expected': centro, 'kind': 'point', 'tokens': [centro]},
+                'vertices': {'label': 'Vértices', 'expected': f'{self._formatear_punto(h + r, k)} / {self._formatear_punto(h - r, k)}', 'kind': 'contains_all', 'tokens': [self._formatear_punto(h + r, k), self._formatear_punto(h - r, k)]},
+                'focos': {'label': 'Focos', 'expected': f'{centro}', 'kind': 'text', 'tokens': [centro]},
+                'eje_mayor': {'label': 'Long. Eje Mayor / Transverso', 'expected': self._formatear_numero(2 * r), 'kind': 'number', 'value': 2 * r},
+                'eje_menor': {'label': 'Long. Eje Menor / Conjugado', 'expected': self._formatear_numero(2 * r), 'kind': 'number', 'value': 2 * r},
+                'dir_asin': {'label': 'Directriz / Asíntotas', 'expected': 'No aplica', 'kind': 'na'},
+            }
+
+        if conic_type == 'elipse':
+            a = abs(float(canonical.get('a', 0) or 0))
+            b = abs(float(canonical.get('b', 0) or 0))
+            eje_horizontal = a >= b
+            a_mayor = max(a, b)
+            b_menor = min(a, b)
+            c = (a_mayor * a_mayor - b_menor * b_menor) ** 0.5
+
+            if eje_horizontal:
+                vertices = [self._formatear_punto(h + a_mayor, k), self._formatear_punto(h - a_mayor, k)]
+                focos = [self._formatear_punto(h + c, k), self._formatear_punto(h - c, k)]
+            else:
+                vertices = [self._formatear_punto(h, k + a_mayor), self._formatear_punto(h, k - a_mayor)]
+                focos = [self._formatear_punto(h, k + c), self._formatear_punto(h, k - c)]
+
+            centro = self._formatear_punto(h, k)
+            return {
+                'centro': {'label': 'Centro', 'expected': centro, 'kind': 'point', 'tokens': [centro]},
+                'vertices': {'label': 'Vértices', 'expected': ' / '.join(vertices), 'kind': 'contains_all', 'tokens': vertices},
+                'focos': {'label': 'Focos', 'expected': ' / '.join(focos), 'kind': 'contains_all', 'tokens': focos},
+                'eje_mayor': {'label': 'Long. Eje Mayor / Transverso', 'expected': self._formatear_numero(2 * a_mayor), 'kind': 'number', 'value': 2 * a_mayor},
+                'eje_menor': {'label': 'Long. Eje Menor / Conjugado', 'expected': self._formatear_numero(2 * b_menor), 'kind': 'number', 'value': 2 * b_menor},
+                'dir_asin': {'label': 'Directriz / Asíntotas', 'expected': 'No aplica', 'kind': 'na'},
+            }
+
+        if conic_type == 'hipérbola':
+            a = abs(float(canonical.get('a', 0) or 0))
+            b = abs(float(canonical.get('b', 0) or 0))
+            vertical = float(result.get('A', 0) or 0) < 0 < float(result.get('B', 0) or 0)
+            c = (a * a + b * b) ** 0.5
+            if vertical:
+                vertices = [self._formatear_punto(h, k + a), self._formatear_punto(h, k - a)]
+                focos = [self._formatear_punto(h, k + c), self._formatear_punto(h, k - c)]
+                asintotas = [f'y = {self._formatear_numero(k)} + {self._formatear_numero(a / b if b else 0)}(x - {self._formatear_numero(h)})', f'y = {self._formatear_numero(k)} - {self._formatear_numero(a / b if b else 0)}(x - {self._formatear_numero(h)})']
+            else:
+                vertices = [self._formatear_punto(h + a, k), self._formatear_punto(h - a, k)]
+                focos = [self._formatear_punto(h + c, k), self._formatear_punto(h - c, k)]
+                asintotas = [f'y = {self._formatear_numero(k)} + {self._formatear_numero(b / a if a else 0)}(x - {self._formatear_numero(h)})', f'y = {self._formatear_numero(k)} - {self._formatear_numero(b / a if a else 0)}(x - {self._formatear_numero(h)})']
+
+            centro = self._formatear_punto(h, k)
+            return {
+                'centro': {'label': 'Centro', 'expected': centro, 'kind': 'point', 'tokens': [centro]},
+                'vertices': {'label': 'Vértices', 'expected': ' / '.join(vertices), 'kind': 'contains_all', 'tokens': vertices},
+                'focos': {'label': 'Focos', 'expected': ' / '.join(focos), 'kind': 'contains_all', 'tokens': focos},
+                'eje_mayor': {'label': 'Long. Eje Mayor / Transverso', 'expected': self._formatear_numero(2 * a), 'kind': 'number', 'value': 2 * a},
+                'eje_menor': {'label': 'Long. Eje Menor / Conjugado', 'expected': self._formatear_numero(2 * b), 'kind': 'number', 'value': 2 * b},
+                'dir_asin': {'label': 'Directriz / Asíntotas', 'expected': ' / '.join(asintotas), 'kind': 'contains_all', 'tokens': asintotas},
+            }
+
+        if conic_type == 'parábola':
+            p = float(canonical.get('p', 0) or 0)
+            axis = str(canonical.get('axis', 'vertical'))
+            if axis == 'vertical':
+                foco = self._formatear_punto(h, k + p)
+                directriz = f'y = {self._formatear_numero(k - p)}'
+            else:
+                foco = self._formatear_punto(h + p, k)
+                directriz = f'x = {self._formatear_numero(h - p)}'
+
+            vertex = self._formatear_punto(h, k)
+            return {
+                'centro': {'label': 'Vértice', 'expected': vertex, 'kind': 'point', 'tokens': [vertex]},
+                'vertices': {'label': 'Vértice', 'expected': vertex, 'kind': 'point', 'tokens': [vertex]},
+                'focos': {'label': 'Foco', 'expected': foco, 'kind': 'point', 'tokens': [foco]},
+                'eje_mayor': {'label': 'Long. Eje Mayor / Transverso', 'expected': 'No aplica', 'kind': 'na'},
+                'eje_menor': {'label': 'Long. Eje Menor / Conjugado', 'expected': 'No aplica', 'kind': 'na'},
+                'dir_asin': {'label': 'Directriz', 'expected': directriz, 'kind': 'text', 'tokens': [directriz]},
+            }
+
+        return {}
+
+    def _comparar_respuesta_defensa(self, respuesta: str, spec: Dict[str, Any]) -> bool:
+        """Compara la respuesta escrita con la expectativa calculada."""
+        tipo = spec.get('kind', 'text')
+        respuesta_norm = self._normalizar_texto(respuesta)
+
+        if tipo == 'na':
+            return self._es_no_aplica(respuesta_norm)
+
+        if tipo == 'number':
+            esperado = self._formatear_numero(float(spec.get('value', 0)))
+            return esperado in respuesta_norm
+
+        tokens = [self._normalizar_texto(token) for token in spec.get('tokens', [])]
+        if not tokens:
+            return False
+
+        if tipo == 'contains_all':
+            return all(token in respuesta_norm for token in tokens)
+
+        return any(token in respuesta_norm for token in tokens)
+
+    def _normalizar_texto(self, texto: str) -> str:
+        """Normaliza texto manual para una comparación tolerante."""
+        texto = texto.lower().strip()
+        reemplazos = {
+            'á': 'a',
+            'é': 'e',
+            'í': 'i',
+            'ó': 'o',
+            'ú': 'u',
+            'ü': 'u',
+            'ñ': 'n',
+            '−': '-',
+            '–': '-',
+            '×': 'x',
+            '·': '',
+            '√': '',
+            ' ': '',
+        }
+        for origen, destino in reemplazos.items():
+            texto = texto.replace(origen, destino)
+
+        return ''.join(ch for ch in texto if ch.isalnum() or ch in '().,+-=<>:/')
+
+    def _es_no_aplica(self, texto_norm: str) -> bool:
+        """Verifica respuestas equivalentes a 'No aplica'."""
+        return any(valor in texto_norm for valor in ('noaplica', 'n/a', 'na', 'noaplica'))
+
+    def _formatear_numero(self, value: float) -> str:
+        """Formatea números para validación de respuestas."""
+        if abs(value - round(value)) < 1e-9:
+            return str(int(round(value)))
+        texto = f'{value:.2f}'.rstrip('0').rstrip('.')
+        return '0' if texto == '-0' else texto
+
+    def _formatear_punto(self, x: float, y: float) -> str:
+        """Formatea un punto cartesiano para comparación textual."""
+        return f'({self._formatear_numero(x)}, {self._formatear_numero(y)})'
 
     def _update_label_dir_asin(self, conic_type: str) -> None:
         """

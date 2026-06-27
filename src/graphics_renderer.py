@@ -164,6 +164,8 @@ class RenderizadorGraficosConicas:
         self.figure = Figure(figsize=figsize, dpi=100, facecolor='#FAFAFA')
         self.ax     = self.figure.add_subplot(111)
         self.canvas = None
+        self._resize_job = None
+        self._resize_bound = False
 
     # ------------------------------------------------------------------
     # API pública
@@ -194,14 +196,19 @@ class RenderizadorGraficosConicas:
             edgecolor='#BDBDBD'
         )
         self.figure.tight_layout()
+        self.ax.set_anchor('C')
+        self.figure.subplots_adjust(left=0.10, right=0.96, top=0.93, bottom=0.10)
 
         # Incrustar en Tkinter
         self.canvas = FigureCanvasTkAgg(self.figure, master=self.parent)
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(side="top", fill="both", expand=True, padx=10, pady=10)
+        self._bind_resize_events()
+        self._ajustar_figura_al_contenedor()
 
     def close(self) -> None:
         """Destruye el widget y libera la figura."""
+        self._cancelar_resize_programado()
         if self.canvas:
             self.canvas.get_tk_widget().destroy()
             self.canvas = None
@@ -212,11 +219,54 @@ class RenderizadorGraficosConicas:
     # ------------------------------------------------------------------
 
     def _limpiar_contenedor(self) -> None:
+        self._cancelar_resize_programado()
         if self.canvas:
             self.canvas.get_tk_widget().destroy()
             self.canvas = None
         self.figure.clf()
         self.ax = self.figure.add_subplot(111)
+
+    def _bind_resize_events(self) -> None:
+        if self._resize_bound:
+            return
+        self.parent.bind('<Configure>', self._on_parent_resize)
+        self._resize_bound = True
+
+    def _on_parent_resize(self, event) -> None:
+        if event.widget is not self.parent:
+            return
+        self._programar_ajuste_tamano()
+
+    def _programar_ajuste_tamano(self) -> None:
+        self._cancelar_resize_programado()
+        if self.canvas is None:
+            return
+        self._resize_job = self.parent.after(60, self._ajustar_figura_al_contenedor)
+
+    def _cancelar_resize_programado(self) -> None:
+        if self._resize_job is not None:
+            try:
+                self.parent.after_cancel(self._resize_job)
+            except Exception:
+                pass
+            self._resize_job = None
+
+    def _ajustar_figura_al_contenedor(self) -> None:
+        if self.canvas is None:
+            return
+
+        widget = self.canvas.get_tk_widget()
+        width = widget.winfo_width()
+        height = widget.winfo_height()
+
+        if width <= 10 or height <= 10:
+            width = max(self.parent.winfo_width() - 20, 320)
+            height = max(self.parent.winfo_height() - 20, 280)
+
+        dpi = self.figure.dpi
+        self.figure.set_size_inches(max(width, 1) / dpi, max(height, 1) / dpi, forward=True)
+        self.figure.tight_layout()
+        self.canvas.draw_idle()
 
     def _configurar_ejes_base(self) -> None:
         """Aplica apariencia base; los límites se ajustan en cada _dibujar_*."""

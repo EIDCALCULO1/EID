@@ -59,6 +59,11 @@ _C = {
     'def_entry_brd':'#90A4C8',
     'def_field_bg': '#F8FAFF',
     'def_field_brd':'#C5D3E8',
+    'def_eval':     '#1565C0',
+    'def_eval_hv':  '#0D47A1',
+    'def_ok':       '#2E7D32',
+    'def_bad':      '#C62828',
+    'def_neutral':  '#90A4AE',
 }
 
 # Colores del gráfico
@@ -535,8 +540,11 @@ class PestanaFuncionesPorTramos:
         self._result        = None
         self._fig_canvas    = None
         self._mpl_figure    = None
+        self._resize_job    = None
+        self._resize_bound  = False
         # CTkEntry / CTkTextbox de defensa (NUNCA escritos desde sistema)
         self._defense_entries: Dict[str, Any] = {}
+        self._defense_status_label: Optional[ctk.CTkLabel] = None
         self._build_ui()
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -697,6 +705,7 @@ class PestanaFuncionesPorTramos:
         # tk.Frame interno para FigureCanvasTkAgg
         self._graph_container = tk.Frame(outer, bg='#F8F9FA')
         self._graph_container.pack(fill='both', expand=True, padx=2, pady=2)
+        self._graph_container.bind('<Configure>', self._on_graph_container_resize)
 
         self._placeholder = ctk.CTkLabel(
             self._graph_container,
@@ -830,6 +839,17 @@ class PestanaFuncionesPorTramos:
         # Botón limpiar (solo acción del estudiante)
         ctk.CTkButton(
             parent,
+            text='✅  Evaluar defensa',
+            command=self._evaluar_defensa,
+            height=34,
+            font=ctk.CTkFont(family='Segoe UI', size=11, weight='bold'),
+            fg_color=_C['def_eval'],
+            hover_color=_C['def_eval_hv'],
+            corner_radius=8
+        ).pack(fill='x', padx=14, pady=(2, 8))
+
+        ctk.CTkButton(
+            parent,
             text='🗑  Limpiar campos de defensa',
             command=self._limpiar_defensa,
             height=34,
@@ -837,7 +857,17 @@ class PestanaFuncionesPorTramos:
             fg_color=_C['def_clear'],
             hover_color=_C['def_clear_hv'],
             corner_radius=8
-        ).pack(fill='x', padx=14, pady=(2, 14))
+        ).pack(fill='x', padx=14, pady=(0, 8))
+
+        self._defense_status_label = ctk.CTkLabel(
+            parent,
+            text='Pulsa “Evaluar defensa” para verificar cada campo.',
+            font=ctk.CTkFont(family='Segoe UI', size=10),
+            text_color=_C['def_neutral'],
+            justify='left',
+            anchor='w'
+        )
+        self._defense_status_label.pack(fill='x', padx=14, pady=(0, 14))
 
     # ─────────────────────────────────────────────────────────────────────────
     # API pública
@@ -853,6 +883,7 @@ class PestanaFuncionesPorTramos:
         self._result = motor.calcular()
         self._actualizar_display(self._result)
         self._dibujar_grafica(self._result)
+        self._reset_defense_evaluation()
 
     # ─────────────────────────────────────────────────────────────────────────
     # Actualización de texto
@@ -1058,6 +1089,7 @@ class PestanaFuncionesPorTramos:
 
         ax.set_title(titulo, fontsize=9, pad=8, color=_C['primary'])
         ax.set_xlim(x_min, x_max)
+        ax.set_anchor('C')
 
         # Límites Y automáticos razonables
         all_y = py_izq + py_der
@@ -1072,6 +1104,7 @@ class PestanaFuncionesPorTramos:
 
         ax.legend(fontsize=8, loc='upper right', framealpha=0.85)
         fig.tight_layout(pad=1.0)
+        fig.subplots_adjust(left=0.10, right=0.96, top=0.93, bottom=0.10)
 
         self._mpl_figure = fig
 
@@ -1079,6 +1112,7 @@ class PestanaFuncionesPorTramos:
         self._fig_canvas = FigureCanvasTkAgg(fig, master=self._graph_container)
         self._fig_canvas.draw()
         self._fig_canvas.get_tk_widget().pack(side="top", fill="both", expand=True, padx=10, pady=10)
+        self._ajustar_figura_al_contenedor()
 
     # ─────────────────────────────────────────────────────────────────────────
     # Limpieza
@@ -1095,3 +1129,199 @@ class PestanaFuncionesPorTramos:
                 widget.delete('1.0', 'end')
             else:
                 widget.delete(0, 'end')
+
+        self._reset_defense_evaluation()
+
+    def _evaluar_defensa(self) -> None:
+        """Evalúa los campos de defensa oral contra el resultado actual."""
+        if self._result is None:
+            messagebox.showwarning(
+                'Sin resultado',
+                'Primero procese un RUT para generar la función por tramos.'
+            )
+            return
+
+        expectativas = self._construir_expectativas_defensa(self._result)
+        correctos = 0
+        evaluables = 0
+        errores: List[str] = []
+
+        for key, spec in expectativas.items():
+            widget = self._defense_entries.get(key)
+            if widget is None:
+                continue
+
+            evaluables += 1
+            respuesta = self._obtener_texto_widget(widget)
+            es_correcto = self._comparar_respuesta_defensa(respuesta, spec)
+            widget.configure(border_color=_C['def_ok'] if es_correcto else _C['def_bad'])
+
+            if es_correcto:
+                correctos += 1
+            else:
+                errores.append(f"{spec['label']}: se esperaba {spec['expected']}")
+
+        if self._defense_status_label is not None:
+            color = _C['def_ok'] if correctos == evaluables else _C['def_bad']
+            self._defense_status_label.configure(
+                text=f'Defensa: {correctos}/{evaluables} campos correctos.',
+                text_color=color
+            )
+
+        if correctos == evaluables:
+            messagebox.showinfo('Evaluación de defensa', 'Todos los campos evaluables están correctos.')
+        else:
+            detalle = '\n'.join(f'• {item}' for item in errores[:8])
+            if len(errores) > 8:
+                detalle += f'\n• ... y {len(errores) - 8} campo(s) más.'
+            messagebox.showwarning(
+                'Evaluación de defensa',
+                f'Hay {evaluables - correctos} campo(s) incorrecto(s).\n\n{detalle}'
+            )
+
+    def _reset_defense_evaluation(self) -> None:
+        """Restablece el estado visual de la evaluación de defensa."""
+        for widget in self._defense_entries.values():
+            if isinstance(widget, ctk.CTkTextbox):
+                widget.configure(border_color=_C['def_entry_brd'])
+            else:
+                widget.configure(border_color=_C['def_entry_brd'])
+
+        if self._defense_status_label is not None:
+            self._defense_status_label.configure(
+                text='Pulsa “Evaluar defensa” para verificar cada campo.',
+                text_color=_C['def_neutral']
+            )
+
+    def _obtener_texto_widget(self, widget: Any) -> str:
+        """Obtiene el texto de un CTkEntry o CTkTextbox."""
+        if isinstance(widget, ctk.CTkTextbox):
+            return widget.get('1.0', 'end').strip()
+        return widget.get().strip()
+
+    def _construir_expectativas_defensa(self, result: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+        """Construye respuestas esperadas para el panel de defensa."""
+        a = float(result.get('a', 0) or 0)
+        caso = int(result.get('caso', 0) or 0)
+        lim_izq = result.get('lim_izq')
+        lim_der = result.get('lim_der')
+        f_en_a = result.get('f_en_a')
+        es_continua = bool(result.get('es_continua', False))
+        tipo_disc = str(result.get('tipo_disc', '') or '')
+
+        if caso == 0:
+            return {
+                'lim_izq': {'label': 'Límite lateral izquierdo', 'expected': self._formatear_numero(lim_izq), 'kind': 'number', 'value': lim_izq},
+                'lim_der': {'label': 'Límite lateral derecho', 'expected': self._formatear_numero(lim_der), 'kind': 'number', 'value': lim_der},
+                'existe': {'label': 'Existe el límite bilateral', 'expected': 'Sí' if result.get('existe_limite') else 'No', 'kind': 'bool', 'value': bool(result.get('existe_limite'))},
+                'f_en_a': {'label': 'Valor de f(a)', 'expected': 'No definida' if f_en_a is None else self._formatear_numero(f_en_a), 'kind': 'value_or_text', 'value': f_en_a},
+                'continua': {'label': 'Es continua en x = a', 'expected': 'Sí' if es_continua else 'No', 'kind': 'bool', 'value': es_continua},
+                'tipo_disc': {'label': 'Tipo de discontinuidad', 'expected': tipo_disc, 'kind': 'text', 'tokens': [tipo_disc]},
+                'justif': {'label': 'Justificación escrita', 'expected': 'removible', 'kind': 'text', 'tokens': ['removible']},
+            }
+
+        if caso == 1:
+            return {
+                'lim_izq': {'label': 'Límite lateral izquierdo', 'expected': self._formatear_numero(lim_izq), 'kind': 'number', 'value': lim_izq},
+                'lim_der': {'label': 'Límite lateral derecho', 'expected': self._formatear_numero(lim_der), 'kind': 'number', 'value': lim_der},
+                'existe': {'label': 'Existe el límite bilateral', 'expected': 'No', 'kind': 'bool', 'value': False},
+                'f_en_a': {'label': 'Valor de f(a)', 'expected': self._formatear_numero(f_en_a), 'kind': 'number', 'value': f_en_a},
+                'continua': {'label': 'Es continua en x = a', 'expected': 'No', 'kind': 'bool', 'value': False},
+                'tipo_disc': {'label': 'Tipo de discontinuidad', 'expected': tipo_disc, 'kind': 'text', 'tokens': [tipo_disc]},
+                'justif': {'label': 'Justificación escrita', 'expected': 'salto', 'kind': 'text', 'tokens': ['salto', self._formatear_numero(lim_izq), self._formatear_numero(lim_der)]},
+            }
+
+        return {
+            'lim_izq': {'label': 'Límite lateral izquierdo', 'expected': self._formatear_numero(lim_izq), 'kind': 'number', 'value': lim_izq},
+            'lim_der': {'label': 'Límite lateral derecho', 'expected': self._formatear_numero(lim_der), 'kind': 'number', 'value': lim_der},
+            'existe': {'label': 'Existe el límite bilateral', 'expected': 'No', 'kind': 'bool', 'value': False},
+            'f_en_a': {'label': 'Valor de f(a)', 'expected': 'No definida', 'kind': 'text', 'tokens': ['no definida', 'indefinida']},
+            'continua': {'label': 'Es continua en x = a', 'expected': 'No', 'kind': 'bool', 'value': False},
+            'tipo_disc': {'label': 'Tipo de discontinuidad', 'expected': tipo_disc, 'kind': 'text', 'tokens': [tipo_disc]},
+            'justif': {'label': 'Justificación escrita', 'expected': 'asíntota vertical', 'kind': 'text', 'tokens': ['asintota vertical', f'x = {self._formatear_numero(a)}']},
+        }
+
+    def _comparar_respuesta_defensa(self, respuesta: str, spec: Dict[str, Any]) -> bool:
+        """Compara la respuesta manual con la expectativa calculada."""
+        kind = spec.get('kind', 'text')
+        respuesta_norm = self._normalizar_texto(respuesta)
+
+        if kind == 'bool':
+            esperado = 'si' if bool(spec.get('value', False)) else 'no'
+            return esperado in respuesta_norm
+
+        if kind == 'number':
+            esperado = self._formatear_numero(spec.get('value'))
+            return esperado in respuesta_norm
+
+        if kind == 'value_or_text':
+            valor = spec.get('value')
+            if valor is None:
+                return any(token in respuesta_norm for token in ('nodefinida', 'indefinida', 'nosedefine'))
+            return self._formatear_numero(valor) in respuesta_norm
+
+        tokens = [self._normalizar_texto(token) for token in spec.get('tokens', []) if token]
+        if not tokens:
+            return False
+        return all(token in respuesta_norm for token in tokens)
+
+    def _normalizar_texto(self, texto: str) -> str:
+        """Normaliza texto para comparación tolerante."""
+        texto = texto.lower().strip()
+        reemplazos = {
+            'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u', 'ü': 'u', 'ñ': 'n',
+            '−': '-', '–': '-', '×': 'x', '·': '', ' ': '',
+        }
+        for origen, destino in reemplazos.items():
+            texto = texto.replace(origen, destino)
+        return ''.join(ch for ch in texto if ch.isalnum() or ch in '().,+-=<>:/')
+
+    def _formatear_numero(self, value: Any) -> str:
+        """Formatea números con máximo 2 decimales para la evaluación."""
+        if value is None:
+            return 'No definido'
+        if value == _INF:
+            return '+∞'
+        if value == -_INF:
+            return '−∞'
+        value = float(value)
+        if _abs(value - round(value)) < 1e-9:
+            return str(int(round(value)))
+        texto = f'{value:.2f}'.rstrip('0').rstrip('.')
+        return '0' if texto == '-0' else texto
+
+    def _on_graph_container_resize(self, event) -> None:
+        if event.widget is not self._graph_container:
+            return
+        self._programar_ajuste_tamano()
+
+    def _programar_ajuste_tamano(self) -> None:
+        self._cancelar_resize_programado()
+        if self._fig_canvas is None:
+            return
+        self._resize_job = self._graph_container.after(60, self._ajustar_figura_al_contenedor)
+
+    def _cancelar_resize_programado(self) -> None:
+        if self._resize_job is not None:
+            try:
+                self._graph_container.after_cancel(self._resize_job)
+            except Exception:
+                pass
+            self._resize_job = None
+
+    def _ajustar_figura_al_contenedor(self) -> None:
+        if self._fig_canvas is None or self._mpl_figure is None:
+            return
+
+        widget = self._fig_canvas.get_tk_widget()
+        width = widget.winfo_width()
+        height = widget.winfo_height()
+
+        if width <= 10 or height <= 10:
+            width = max(self._graph_container.winfo_width() - 20, 320)
+            height = max(self._graph_container.winfo_height() - 20, 280)
+
+        dpi = self._mpl_figure.dpi
+        self._mpl_figure.set_size_inches(max(width, 1) / dpi, max(height, 1) / dpi, forward=True)
+        self._mpl_figure.tight_layout(pad=1.0)
+        self._fig_canvas.draw_idle()
